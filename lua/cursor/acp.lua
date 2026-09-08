@@ -138,7 +138,13 @@ function M.handle_session_update(params)
     require("cursor.ui").schedule_refresh()
   elseif kind == "session_info_update" then
     if update.title and update.title ~= "" then
+      local session_id = params.sessionId or state.get().session_id
       state.set_session_title(update.title)
+      if session_id then
+        require("cursor.chats_index").sync_title(session_id, update.title, {
+          cwd = state.get().project_root,
+        })
+      end
       require("cursor.ui").schedule_refresh()
     end
   else

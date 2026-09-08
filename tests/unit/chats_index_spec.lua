@@ -63,11 +63,71 @@ test("chats_index set_title updates meta.json", function()
   vim.fn.writefile(vim.fn.readfile(src), dst)
 
   config.setup({ chats_storage_dirs = { tmp_dir } })
-  local ok, err = chats_index.set_title("22222222-2222-2222-2222-222222222222", "Renamed chat")
-  assert_true(ok, err or "set_title failed")
+  chats_index.clear_overrides()
+  local ok = chats_index.set_title("22222222-2222-2222-2222-222222222222", "Renamed chat")
+  assert_true(ok)
 
   local meta = chats_index.read_meta(dst)
   assert_eq(meta.title, "Renamed chat")
 
   vim.fn.delete(tmp_dir, "rf")
+  chats_index.clear_overrides()
+end)
+
+test("chats_index title overlay appears in list_for_root", function()
+  local config = require("cursor.config")
+  local chats_index = require("cursor.chats_index")
+  config.setup({ chats_storage_dirs = { fixture_root } })
+  chats_index.clear_overrides()
+
+  local orig_hash = chats_index.workspace_hash
+  chats_index.workspace_hash = function()
+    return "abc123workspacehash"
+  end
+
+  chats_index.remember_title("sess-overlay-test", "Live title", {
+    cwd = "/tmp/cursor-nvim-test-project",
+  })
+
+  local chats = chats_index.list_for_root("/tmp/cursor-nvim-test-project")
+  chats_index.workspace_hash = orig_hash
+  chats_index.clear_overrides()
+
+  local found = false
+  for _, chat in ipairs(chats) do
+    if chat.id == "sess-overlay-test" and chat.title == "Live title" then
+      found = true
+      break
+    end
+  end
+  assert_true(found)
+end)
+
+test("chats_index overlay overrides stale disk title", function()
+  local config = require("cursor.config")
+  local chats_index = require("cursor.chats_index")
+  config.setup({ chats_storage_dirs = { fixture_root } })
+  chats_index.clear_overrides()
+
+  local orig_hash = chats_index.workspace_hash
+  chats_index.workspace_hash = function()
+    return "abc123workspacehash"
+  end
+
+  chats_index.remember_title("11111111-1111-1111-1111-111111111111", "Updated live title", {
+    cwd = "/tmp/cursor-nvim-test-project",
+  })
+
+  local chats = chats_index.list_for_root("/tmp/cursor-nvim-test-project")
+  chats_index.workspace_hash = orig_hash
+  chats_index.clear_overrides()
+
+  local title = nil
+  for _, chat in ipairs(chats) do
+    if chat.id == "11111111-1111-1111-1111-111111111111" then
+      title = chat.title
+      break
+    end
+  end
+  assert_eq(title, "Updated live title")
 end)

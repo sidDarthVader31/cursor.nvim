@@ -1,16 +1,27 @@
 local acp = require("cursor.acp")
 local chats_index = require("cursor.chats_index")
+local log = require("cursor.log")
 local project = require("cursor.project")
 local schedule = require("cursor.schedule")
 local state = require("cursor.state")
 
 local M = {}
 
+local function sync_session_title(session_id, title)
+  if not session_id or not title or title == "" then
+    return
+  end
+  chats_index.sync_title(session_id, title, { cwd = project.root() })
+end
+
 function M.new(callback)
   state.set_session_title("New chat")
   acp.session_new(function(result, err)
-    if not err and result and result.title then
+    if not err and result and result.title and result.sessionId then
       state.set_session_title(result.title)
+      sync_session_title(result.sessionId, result.title)
+    elseif not err and result and result.sessionId then
+      sync_session_title(result.sessionId, "New chat")
     end
     if callback then
       callback(result, err)
@@ -21,6 +32,7 @@ end
 function M.resume(session_id, title, callback)
   if title then
     state.set_session_title(title)
+    sync_session_title(session_id, title)
   else
     local looked_up = chats_index.title_for_session(session_id, project.root())
     state.set_session_title(looked_up or session_id:sub(1, 8))
@@ -28,6 +40,7 @@ function M.resume(session_id, title, callback)
   acp.session_load(session_id, function(result, err)
     if not err and result and result.title then
       state.set_session_title(result.title)
+      sync_session_title(session_id, result.title)
     end
     if callback then
       callback(result, err)
@@ -64,13 +77,7 @@ function M.rename(title, session_id, callback)
     return false, err
   end
 
-  local ok, persist_err = chats_index.set_title(session_id, title)
-  if not ok then
-    if callback then
-      callback(false, persist_err)
-    end
-    return false, persist_err
-  end
+  chats_index.sync_title(session_id, title, { cwd = project.root() })
 
   if session_id == state.get().session_id then
     state.set_session_title(title)

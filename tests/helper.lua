@@ -73,6 +73,7 @@ function M.reset_plugin()
   end
 
   require("cursor.state").reset()
+  require("cursor.chats_index").clear_overrides()
 end
 
 --- Run scheduled callbacks (for tests that use vim.schedule).

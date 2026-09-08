@@ -11,6 +11,7 @@ test("session.rename updates session title in state", function()
   local config = require("cursor.config")
 
   state.reset()
+  chats_index.clear_overrides()
   state.get().session_id = "sess-rename-test"
 
   local fixture_root = vim.fn.fnamemodify(vim.fn.getcwd(), ":p") .. "tests/fixtures/chats"
@@ -46,7 +47,52 @@ test("session.rename updates session title in state", function()
 
   acp.session_set_title = orig_set_title
   vim.fn.delete(tmp_dir, "rf")
+  chats_index.clear_overrides()
 
   assert_true(ok_result)
   assert_eq(state.get().session_title, "My renamed chat")
+end)
+
+test("session.rename works without meta.json via title overlay", function()
+  local state = require("cursor.state")
+  local session = require("cursor.session")
+  local chats_index = require("cursor.chats_index")
+  local acp = require("cursor.acp")
+  local project = require("cursor.project")
+
+  state.reset()
+  chats_index.clear_overrides()
+  state.get().session_id = "sess-no-meta"
+
+  local orig_root = project.root
+  project.root = function()
+    return "/tmp/cursor-nvim-test-project"
+  end
+
+  local orig_set_title = acp.session_set_title
+  acp.session_set_title = function(_, _, cb)
+    if cb then
+      cb({}, nil)
+    end
+  end
+
+  local done = false
+  local ok_result = false
+  session.rename("Overlay only title", "sess-no-meta", function(ok)
+    ok_result = ok
+    done = true
+  end)
+
+  vim.wait(1000, function()
+    return done
+  end)
+
+  acp.session_set_title = orig_set_title
+  project.root = orig_root
+
+  assert_true(ok_result)
+  assert_eq(state.get().session_title, "Overlay only title")
+  assert_eq(chats_index.get_remembered_title("sess-no-meta"), "Overlay only title")
+
+  chats_index.clear_overrides()
 end)
