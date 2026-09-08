@@ -1,0 +1,6 @@
+WRN 2026-09-08T14:37:06.185 ?.94032    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/YFFrvj/nvim.94032.0
+WRN 2026-09-08T14:37:06.185 ?.94030    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/fRlbzH/nvim.94030.0
+WRN 2026-09-08T14:37:40.151 ?.95311    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/yfg4g6/nvim.95311.0
+WRN 2026-09-08T15:10:14.728 ?.9553     server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/mZV6cR/nvim.9553.0
+WRN 2026-09-08T15:10:31.403 ?.9979     server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/9GQMmV/nvim.9979.0
+WRN 2026-09-08T15:10:31.433 ?.9985     server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/mhWEB1/nvim.9985.0

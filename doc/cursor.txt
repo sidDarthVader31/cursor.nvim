@@ -1,0 +1,79 @@
+*cursor.txt*    Cursor Agent integration for Neovim
+
+==============================================================================
+CONTENTS                                                    *cursor-contents*
+
+  Introduction .......................... |cursor-introduction|
+  Commands ............................ |cursor-commands|
+  Configuration ....................... |cursor-config|
+  Authentication ...................... |cursor-auth|
+  Picker .............................. |cursor-picker|
+
+==============================================================================
+INTRODUCTION                                         *cursor-introduction*
+
+cursor.nvim is an ACP client for the Cursor Agent CLI. It provides a native
+Neovim chat panel, model/effort picker, and permission prompts.
+
+Requires Neovim 0.11+ and the `agent` executable on PATH.
+
+Usage is billed to your Cursor account (same pool as Cursor desktop).
+
+==============================================================================
+COMMANDS                                                 *cursor-commands*
+
+:CursorLogin                Browser/SSO login via agent login
+:CursorLogin!               Login without opening browser
+:CursorLogout               Log out and stop agent
+:CursorAuthStatus           Show authentication status
+:CursorStart                Start ACP process
+:CursorStop                 Stop ACP process
+:CursorRestart              Restart ACP process
+:CursorChat                 Open chat panel
+:CursorClose                Hide chat panel
+:CursorToggle               Toggle chat panel
+:CursorAsk [prompt]         Ask with editor context
+:CursorCancel               Cancel active prompt
+:CursorChats                List and resume chats
+:CursorSessionNew           Create new session
+:CursorSessionResume <id>   Resume session by id
+:CursorModel [name]         Model/effort/mode picker
+:CursorEffort               Picker on effort tab
+:CursorMode                 Picker on mode tab
+:CursorHealth               Print health report
+:checkhealth cursor         Neovim health check
+
+==============================================================================
+CONFIGURATION                                           *cursor-config*
+
+>
+  require("cursor").setup({
+    agent_command = "agent",
+    agent_args = { "acp" },
+    width = 0.40,
+    border = "rounded",
+    auto_start = false,
+    log_level = "warn",
+    permissions = {
+      default = "ask",
+    },
+  })
+<
+
+==============================================================================
+AUTHENTICATION                                           *cursor-auth*
+
+The plugin does not store credentials. Use :CursorLogin for SSO or set
+CURSOR_API_KEY in the environment for headless use.
+
+==============================================================================
+PICKER                                                     *cursor-picker*
+
+:CursorModel opens a centered picker with tabs:
+  m - models (with / filter)
+  e - effort (medium/high)
+  o - mode (agent/plan/ask)
+
+<CR> applies the selection. q closes.
+
+vim:tw=78:ts=8:ft=help:norl:

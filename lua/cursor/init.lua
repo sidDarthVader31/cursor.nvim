@@ -1,0 +1,141 @@
+local acp = require("cursor.acp")
+local auth = require("cursor.auth")
+local config = require("cursor.config")
+local project = require("cursor.project")
+local state = require("cursor.state")
+local transport = require("cursor.transport")
+
+local M = {}
+
+function M.setup(opts)
+  config.setup(opts)
+  require("cursor.commands").setup()
+end
+
+function M.start(callback)
+  require("cursor.acp").start({}, callback)
+end
+
+function M.restart(callback)
+  require("cursor.acp").restart({}, callback)
+end
+
+function M.chat()
+  require("cursor.ui").ensure_started(function(ok)
+    if ok then
+      require("cursor.ui").open()
+    end
+  end)
+end
+
+function M.close()
+  require("cursor.ui").close()
+end
+
+function M.toggle()
+  require("cursor.ui").toggle()
+end
+
+function M.ask(prompt)
+  require("cursor.ui").ensure_started(function(ok)
+    if not ok then
+      return
+    end
+    require("cursor.ui").open()
+    if prompt and prompt ~= "" then
+      require("cursor.ui.input").submit_with_context(prompt)
+    else
+      require("cursor.ui.input").submit_with_context("")
+    end
+  end)
+end
+
+function M.stop()
+  acp.stop()
+end
+
+function M.cancel()
+  acp.session_cancel()
+end
+
+function M.login(opts)
+  opts = opts or {}
+  local lines = {
+    "Opening browser for Cursor SSO…",
+    "If nothing opens, run: NO_OPEN_BROWSER=1 agent login",
+    "",
+    "Waiting for agent login to finish. Close this buffer when done.",
+  }
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = 60,
+    height = #lines + 2,
+    col = math.floor((vim.o.columns - 60) / 2),
+    row = math.floor((vim.o.lines - #lines - 2) / 2),
+    style = "minimal",
+    border = "rounded",
+    title = " Cursor login ",
+  })
+
+  auth.login({
+    no_browser = opts.no_browser,
+    on_exit = function(obj)
+      if obj.code == 0 then
+        vim.notify("[cursor] Login successful. Run :CursorRestart", vim.log.levels.INFO)
+      else
+        vim.notify("[cursor] Login failed or cancelled", vim.log.levels.WARN)
+      end
+    end,
+  })
+end
+
+function M.logout()
+  auth.logout(function()
+    M.stop()
+    vim.notify("[cursor] Logged out", vim.log.levels.INFO)
+  end)
+end
+
+function M.auth_status()
+  auth.status(function(data)
+    vim.notify(vim.inspect(data), vim.log.levels.INFO)
+  end)
+end
+
+function M.health()
+  local lines = {}
+  table.insert(lines, "cursor.nvim health")
+  table.insert(lines, string.rep("─", 20))
+
+  local nvim_ver = vim.version()
+  table.insert(lines, string.format("✓ Neovim version: %d.%d.%d", nvim_ver.major, nvim_ver.minor, nvim_ver.patch))
+
+  local agent_path = transport.find_agent()
+  if agent_path then
+    table.insert(lines, "✓ agent executable: " .. agent_path)
+  else
+    table.insert(lines, "✗ agent executable: not found in PATH")
+  end
+
+  if auth.is_api_key_set() then
+    table.insert(lines, "✓ CURSOR_API_KEY: set")
+  else
+    table.insert(lines, "○ CURSOR_API_KEY: not set (browser login may be used)")
+  end
+
+  local root = project.root()
+  table.insert(lines, "✓ project root: " .. root)
+
+  local st = state.get()
+  table.insert(lines, "○ ACP process: " .. (transport.is_running() and "running" or "stopped"))
+  table.insert(lines, "○ active session: " .. (st.session_id and ("yes (" .. st.session_id .. ")") or "no"))
+  table.insert(lines, "○ status: " .. st.status)
+  table.insert(lines, "")
+  table.insert(lines, "Usage is billed to your Cursor account (same pool as Cursor desktop).")
+
+  return lines
+end
+
+return M
