@@ -17,6 +17,7 @@ local initial = {
   status = M.states.stopped,
   process = nil,
   session_id = nil,
+  session_title = nil,
   project_root = nil,
   rpc_next_id = 1,
   pending_requests = {},
@@ -95,6 +96,46 @@ end
 
 function M.option_id(opt)
   return option_id(opt)
+end
+
+local function humanize(value)
+  if not value or value == "" then
+    return "?"
+  end
+  local base = value:match("^([^%[]+)") or value
+  return base:sub(1, 1):upper() .. base:sub(2)
+end
+
+function M.set_session_title(title)
+  M._state.session_title = title
+end
+
+function M.display_value(category)
+  for _, opt in ipairs(M._state.config_options) do
+    if opt.category == category or option_id(opt) == category then
+      local current = opt.currentValue
+      if opt.options and current then
+        for _, o in ipairs(opt.options) do
+          if o.value == current then
+            return o.name or humanize(current)
+          end
+        end
+      end
+      if current then
+        return humanize(current)
+      end
+    end
+  end
+  if category == "model" and M._state.current_model then
+    return humanize(M._state.current_model)
+  end
+  if category == "thought_level" and M._state.current_effort then
+    return humanize(M._state.current_effort)
+  end
+  if category == "mode" and M._state.current_mode then
+    return humanize(M._state.current_mode)
+  end
+  return "?"
 end
 
 return M

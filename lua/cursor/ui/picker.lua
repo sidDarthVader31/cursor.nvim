@@ -11,6 +11,7 @@ M.tab = "model"
 M.filter = ""
 M.cursor = 1
 M.items = {}
+M.chats_ns = vim.api.nvim_create_namespace("cursor-chats")
 
 local TABS = {
   model = { key = "m", label = "Model", category = "model" },
@@ -243,19 +244,107 @@ function M.open(opts)
   end)
 end
 
+local function chat_count(chats)
+  return #chats
+end
+
+local function format_chat_row(item, width)
+  width = width or 60
+  local title_width = width - 12
+  local title = item.title or item.line or item.value or "?"
+  if #title > title_width then
+    title = title:sub(1, title_width - 1) .. "…"
+  end
+  local time = item.time or ""
+  if time ~= "" then
+    return string.format("%-" .. title_width .. "s  %s", title, time)
+  end
+  return title
+end
+
+local function apply_chats_highlights(buf, meta, cursor_idx)
+  vim.api.nvim_buf_clear_namespace(buf, M.chats_ns, 0, -1)
+  for _, entry in ipairs(meta) do
+    if entry.hl then
+      local opts = {
+        end_row = entry.line,
+        hl_group = entry.hl,
+        strict = false,
+      }
+      if entry.col and entry.end_col then
+        opts.end_col = entry.end_col
+      end
+      vim.api.nvim_buf_set_extmark(buf, M.chats_ns, entry.line, entry.col or 0, opts)
+    end
+  end
+  if cursor_idx then
+    vim.api.nvim_buf_set_extmark(buf, M.chats_ns, cursor_idx, 0, {
+      end_row = cursor_idx,
+      hl_group = "CursorPickerCurrent",
+      strict = false,
+    })
+  end
+end
+
 local function refresh_chats()
   if not M.buf or not vim.api.nvim_buf_is_valid(M.buf) then
     return
   end
-  local out = { "Cursor chats", "" }
-  for i, item in ipairs(M.items) do
-    table.insert(out, (i == M.cursor and "❯ " or "  ") .. item.line)
+
+  local cfg = config.get().picker
+  local width = cfg.width or 70
+  local chat_items = 0
+  for _, item in ipairs(M.items) do
+    if item.value ~= "new" and item.value ~= "empty" then
+      chat_items = chat_items + 1
+    end
   end
+
+  local out = {}
+  local meta = {}
+  local header = string.format("Sessions (%d)", chat_items)
+  table.insert(out, header)
+  table.insert(meta, { line = 0, hl = "CursorPickerTab" })
+  table.insert(out, string.rep("─", math.min(width - 2, 50)))
+  table.insert(meta, { line = 1, hl = "Comment" })
+
+  local row = 2
+  for i, item in ipairs(M.items) do
+    local prefix = i == M.cursor and "❯ " or "  "
+    local body = format_chat_row(item, width - 4)
+    local line = prefix .. body
+    table.insert(out, line)
+    if item.value == "new" or item.value == "empty" then
+      table.insert(meta, { line = row, hl = "CursorPickerMuted" })
+    elseif item.time and item.time ~= "" then
+      local time_start = #line - #item.time
+      table.insert(meta, {
+        line = row,
+        col = time_start,
+        end_col = #line,
+        hl = "CursorPickerMuted",
+      })
+    end
+    row = row + 1
+  end
+
   table.insert(out, "")
-  table.insert(out, " <CR> resume  n new  q close")
+  table.insert(out, string.rep("─", math.min(width - 2, 50)))
+  row = row + 1
+  table.insert(out, " <CR> open   n new   r rename   q close")
+
   vim.api.nvim_buf_set_option(M.buf, "modifiable", true)
   vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, out)
   vim.api.nvim_buf_set_option(M.buf, "modifiable", false)
+
+  local cursor_line = nil
+  for i, item in ipairs(M.items) do
+    if i == M.cursor then
+      cursor_line = 2 + (i - 1)
+      break
+    end
+  end
+  apply_chats_highlights(M.buf, meta, cursor_line)
 end
 
 local function open_chats_window(chats)
@@ -264,13 +353,15 @@ local function open_chats_window(chats)
   for _, c in ipairs(chats) do
     table.insert(M.items, {
       value = c.id,
+      title = c.title or c.id,
+      time = chats_index.format_relative_time(c.updatedAtMs),
       line = chats_index.format_chat_line(c),
       configId = "session",
     })
   end
-  table.insert(M.items, 1, { value = "new", line = "(new session)", configId = "session" })
+  table.insert(M.items, 1, { value = "new", title = "(new session)", line = "(new session)", configId = "session" })
   if #chats == 0 then
-    table.insert(M.items, { value = "empty", line = "(no chats for this project)", configId = "session" })
+    table.insert(M.items, { value = "empty", title = "(no chats for this project)", line = "(no chats for this project)", configId = "session" })
   end
 
   M.buf = vim.api.nvim_create_buf(false, true)
@@ -279,6 +370,7 @@ local function open_chats_window(chats)
   M.cursor = 1
 
   local cfg = config.get().picker
+  local title = string.format(" Cursor chats (%d) ", chat_count(chats))
   M.win = vim.api.nvim_open_win(M.buf, true, {
     relative = "editor",
     width = cfg.width or 70,
@@ -287,7 +379,7 @@ local function open_chats_window(chats)
     row = math.floor((vim.o.lines - (cfg.height or 18)) / 2),
     style = "minimal",
     border = config.get().border,
-    title = " Cursor chats ",
+    title = title,
   })
 
   refresh_chats()
@@ -331,7 +423,7 @@ local function open_chats_window(chats)
           after_session_action(err == nil, err, true)
         end)
       else
-        session.resume(item.value, function(_, err)
+        session.resume(item.value, item.title, function(_, err)
           after_session_action(err == nil, err, true)
         end)
       end
@@ -346,6 +438,35 @@ local function open_chats_window(chats)
       end
       session.new(function(_, err)
         after_session_action(err == nil, err, true)
+      end)
+    end)
+  end, opts)
+
+  vim.keymap.set("n", "r", function()
+    local item = M.items[M.cursor]
+    if not item or item.value == "new" or item.value == "empty" then
+      return
+    end
+    local default = item.title or ""
+    vim.ui.input({
+      prompt = "Rename chat: ",
+      default = default,
+    }, function(input)
+      if not input or input == "" then
+        return
+      end
+      session.rename(input, item.value, function(ok, err)
+        if not ok then
+          vim.notify("[cursor] Rename failed: " .. (err or "unknown error"), vim.log.levels.ERROR)
+          return
+        end
+        item.title = input
+        item.line = require("cursor.chats_index").format_chat_line({
+          id = item.value,
+          title = input,
+          updatedAtMs = vim.loop.now(),
+        })
+        refresh_chats()
       end)
     end)
   end, opts)

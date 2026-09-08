@@ -183,6 +183,7 @@ If the browser still does not open (remote SSH, headless, etc.), use `:CursorLog
 | `:CursorAsk [prompt]` | Context-aware question |
 | `:CursorCancel` | Cancel active prompt |
 | `:CursorChats` | Session picker |
+| `:CursorRename [title]` | Rename current chat (prompts if no title given) |
 | `:CursorSessionNew` / `:CursorSessionResume` | Session management |
 | `:CursorModel` / `:CursorEffort` / `:CursorMode` | Config picker (m/e/o tabs) |
 | `:CursorHealth` / `:checkhealth cursor` | Diagnostics |
@@ -196,6 +197,18 @@ Inside `:CursorModel`:
 - `j` / `k` — move
 - `<CR>` — apply (window stays open)
 - `q` — close
+
+## Chats picker keys
+
+Inside `:CursorChats`:
+
+- `j` / `k` — move
+- `<CR>` — open selected chat
+- `n` — new session
+- `r` — rename selected chat
+- `q` — close
+
+In the chat history buffer, press `R` to rename the current chat.
 
 ## Troubleshooting
 

@@ -1,8 +1,6 @@
 local config = require("cursor.config")
-local log = require("cursor.log")
 local rpc = require("cursor.rpc")
 local schedule = require("cursor.schedule")
-local state = require("cursor.state")
 local transport = require("cursor.transport")
 
 local M = {}
@@ -35,12 +33,24 @@ end
 
 function M.default_option_id(params, kind)
   local options = params.options or (params.toolCall and params.toolCall.options) or {}
+
+  if kind == "session" then
+    for _, opt in ipairs(options) do
+      local id = option_id(opt)
+      if id and (id:find("session", 1, true) or id:find("always", 1, true)) then
+        return id
+      end
+    end
+    return "allow-always"
+  end
+
   for _, opt in ipairs(options) do
     local id = option_id(opt)
     if id and id:find(kind, 1, true) then
       return id
     end
   end
+
   if kind == "reject" then
     return "reject-once"
   end

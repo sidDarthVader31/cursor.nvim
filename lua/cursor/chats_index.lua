@@ -129,6 +129,72 @@ function M.list_for_root(root)
   return M.sort_chats(chats)
 end
 
+function M.title_for_session(session_id, root)
+  if not session_id then
+    return nil
+  end
+  root = normalize_path(root)
+  for _, base in ipairs(M.storage_dirs()) do
+    if vim.fn.isdirectory(base) == 1 then
+      local hashes = vim.fn.readdir(base)
+      for _, hash in ipairs(hashes) do
+        if hash ~= "." and hash ~= ".." then
+          local meta_path = vim.fn.join({ base, hash, session_id, "meta.json" }, "/")
+          local meta = M.read_meta(meta_path)
+          if meta and meta.title and meta.title ~= "" then
+            if root == "" or normalize_path(meta.cwd) == root then
+              return meta.title
+            end
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+function M.find_meta_path(session_id)
+  if not session_id then
+    return nil
+  end
+  for _, base in ipairs(M.storage_dirs()) do
+    if vim.fn.isdirectory(base) == 1 then
+      local hashes = vim.fn.readdir(base)
+      for _, hash in ipairs(hashes) do
+        if hash ~= "." and hash ~= ".." then
+          local meta_path = vim.fn.join({ base, hash, session_id, "meta.json" }, "/")
+          if vim.fn.filereadable(meta_path) == 1 then
+            return meta_path
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+function M.set_title(session_id, title)
+  if not session_id or not title or title == "" then
+    return false, "missing session id or title"
+  end
+  local meta_path = M.find_meta_path(session_id)
+  if not meta_path then
+    return false, "meta.json not found for session"
+  end
+  local meta = M.read_meta(meta_path)
+  if not meta then
+    return false, "failed to read meta.json"
+  end
+  meta.title = title
+  meta.updatedAtMs = vim.loop.now()
+  local encoded = vim.json.encode(meta)
+  local ok, err = pcall(vim.fn.writefile, vim.split(encoded, "\n", { plain = true }), meta_path)
+  if not ok then
+    return false, tostring(err)
+  end
+  return true
+end
+
 function M.format_relative_time(updated_at_ms)
   if not updated_at_ms or updated_at_ms == 0 then
     return ""

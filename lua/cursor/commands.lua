@@ -133,7 +133,9 @@ function M.setup()
     end
     require("cursor.ui").ensure_started(function(ok)
       if ok then
-        require("cursor.session").resume(id)
+        require("cursor.session").resume(id, nil, function()
+          vim.notify("[cursor] Session resumed", vim.log.levels.INFO)
+        end)
       end
     end)
   end, { nargs = 1 })
@@ -141,6 +143,21 @@ function M.setup()
   cmd("CursorChats", function()
     require("cursor.ui.picker").open_chats()
   end, {})
+
+  cmd("CursorRename", function(opts)
+    local title = opts.args
+    if title ~= "" then
+      require("cursor.session").rename(title, nil, function(ok, err)
+        if not ok then
+          vim.notify("[cursor] Rename failed: " .. (err or "unknown error"), vim.log.levels.ERROR)
+        else
+          vim.notify("[cursor] Chat renamed to: " .. title, vim.log.levels.INFO)
+        end
+      end)
+    else
+      require("cursor.session").prompt_rename()
+    end
+  end, { nargs = "?" })
 
   cmd("CursorModel", function(opts)
     local name = opts.args

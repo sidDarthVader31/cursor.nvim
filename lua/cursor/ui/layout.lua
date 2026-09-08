@@ -9,6 +9,23 @@ M.chat_win = nil
 M.input_win = nil
 M.main_win = nil
 
+local function setup_chat_buffer(buf)
+  vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+  pcall(vim.treesitter.start, buf, "markdown")
+end
+
+local function apply_chat_win_options(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+  vim.api.nvim_win_set_option(win, "wrap", true)
+  local md = config.get().markdown or {}
+  if md.conceal then
+    vim.api.nvim_win_set_option(win, "conceallevel", 2)
+    vim.api.nvim_win_set_option(win, "concealcursor", "n")
+  end
+end
+
 local function ensure_buffers()
   if not M.chat_buf or not vim.api.nvim_buf_is_valid(M.chat_buf) then
     M.chat_buf = vim.api.nvim_create_buf(false, true)
@@ -17,6 +34,7 @@ local function ensure_buffers()
     vim.api.nvim_buf_set_option(M.chat_buf, "swapfile", false)
     vim.api.nvim_buf_set_option(M.chat_buf, "modifiable", false)
     vim.api.nvim_buf_set_name(M.chat_buf, "cursor-chat")
+    setup_chat_buffer(M.chat_buf)
     M.setup_chat_keymaps(M.chat_buf)
   end
 
@@ -41,6 +59,9 @@ function M.setup_chat_keymaps(buf)
   end, opts)
   vim.keymap.set("n", "i", function()
     M.focus_input()
+  end, opts)
+  vim.keymap.set("n", "R", function()
+    require("cursor.session").prompt_rename()
   end, opts)
 end
 
@@ -67,8 +88,8 @@ function M.open_split()
   vim.api.nvim_win_set_buf(M.chat_win, M.chat_buf)
   vim.api.nvim_win_set_option(M.chat_win, "number", false)
   vim.api.nvim_win_set_option(M.chat_win, "relativenumber", false)
-  vim.api.nvim_win_set_option(M.chat_win, "wrap", true)
   vim.api.nvim_win_set_option(M.chat_win, "winfixwidth", true)
+  apply_chat_win_options(M.chat_win)
 
   vim.cmd("split")
   M.input_win = vim.api.nvim_get_current_win()
@@ -137,6 +158,8 @@ function M.open_float()
     zindex = 41,
   })
 
+  apply_chat_win_options(M.chat_win)
+
   require("cursor.ui.chat").render()
 end
 
@@ -150,22 +173,14 @@ function M.open()
 end
 
 function M.title_text()
-  local st = state.get()
-  local model = st.current_model or "?"
-  local effort = st.current_effort or "medium"
-  local mode = st.current_mode or "agent"
-  local status = st.status or "stopped"
-  return string.format(" Cursor  %s  %s  %s · %s ", model, effort, mode, status)
+  return require("cursor.ui.status").text({ window = true })
 end
 
 function M.update_title()
   if not M.chat_win or not vim.api.nvim_win_is_valid(M.chat_win) then
     return
   end
-  local cfg = config.get()
-  if (cfg.layout or "split") == "float" then
-    vim.api.nvim_win_set_config(M.chat_win, { title = M.title_text() })
-  end
+  vim.api.nvim_win_set_config(M.chat_win, { title = M.title_text() })
 end
 
 function M.close()

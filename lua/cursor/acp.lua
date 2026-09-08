@@ -136,6 +136,11 @@ function M.handle_session_update(params)
   elseif kind == "plan" then
     state.add_message({ role = "assistant", content = update.plan or update.text or "" })
     require("cursor.ui").schedule_refresh()
+  elseif kind == "session_info_update" then
+    if update.title and update.title ~= "" then
+      state.set_session_title(update.title)
+      require("cursor.ui").schedule_refresh()
+    end
   else
     log.debug("Unknown session update: " .. tostring(kind))
   end
@@ -360,6 +365,20 @@ function M.session_cancel(callback)
   send_request("session/cancel", { sessionId = session_id }, function(result, err)
     state.get().prompting = false
     state.set_status(state.states.ready)
+    if callback then
+      callback(result, err)
+    end
+  end)
+end
+
+function M.session_set_title(session_id, title, callback)
+  if not session_id or not title or title == "" then
+    if callback then
+      callback(nil, { message = "missing session id or title" })
+    end
+    return
+  end
+  send_request("session/setTitle", { sessionId = session_id, title = title }, function(result, err)
     if callback then
       callback(result, err)
     end

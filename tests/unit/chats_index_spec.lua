@@ -47,3 +47,27 @@ test("chats_index format_chat_line includes relative time", function()
   assert_true(line:find("My chat") ~= nil)
   assert_true(line:find("ago") ~= nil)
 end)
+
+test("chats_index set_title updates meta.json", function()
+  local chats_index = require("cursor.chats_index")
+  local config = require("cursor.config")
+  local fixture_root = vim.fn.fnamemodify(vim.fn.getcwd(), ":p") .. "tests/fixtures/chats"
+  local tmp_dir = vim.fn.tempname()
+  vim.fn.mkdir(tmp_dir, "p")
+  local workspace = tmp_dir .. "/abc123workspacehash"
+  local session_dir = workspace .. "/22222222-2222-2222-2222-222222222222"
+  vim.fn.mkdir(session_dir, "p")
+
+  local src = fixture_root .. "/abc123workspacehash/11111111-1111-1111-1111-111111111111/meta.json"
+  local dst = session_dir .. "/meta.json"
+  vim.fn.writefile(vim.fn.readfile(src), dst)
+
+  config.setup({ chats_storage_dirs = { tmp_dir } })
+  local ok, err = chats_index.set_title("22222222-2222-2222-2222-222222222222", "Renamed chat")
+  assert_true(ok, err or "set_title failed")
+
+  local meta = chats_index.read_meta(dst)
+  assert_eq(meta.title, "Renamed chat")
+
+  vim.fn.delete(tmp_dir, "rf")
+end)
