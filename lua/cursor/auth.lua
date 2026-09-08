@@ -1,11 +1,23 @@
 local config = require("cursor.config")
 local env_util = require("cursor.env")
-local log = require("cursor.log")
+local transport = require("cursor.transport")
 
 local M = {}
 
+local function agent_argv(...)
+  local agent = transport.find_agent()
+  if not agent then
+    return nil
+  end
+  return vim.list_extend({ agent }, { ... })
+end
+
 function M.status(callback)
-  local cmd = { config.get().agent_command, "status", "--format", "json" }
+  local cmd = agent_argv("status", "--format", "json")
+  if not cmd then
+    callback({ authenticated = false, raw = "agent not found" })
+    return
+  end
   vim.system(cmd, {}, function(obj)
     if obj.code ~= 0 then
       callback({ authenticated = false, raw = obj.stderr })
@@ -23,21 +35,25 @@ end
 --- Programmatic login (headless). Prefer require("cursor.ui.login").start() for UI.
 function M.login(opts)
   opts = opts or {}
-  local transport = require("cursor.transport")
-  local agent = transport.find_agent()
-  if not agent then
+  local cmd = agent_argv("login")
+  if not cmd then
     if opts.on_exit then
       opts.on_exit({ code = 1, stdout = "", stderr = "agent not found" })
     end
     return nil
   end
-  local cmd = { agent, "login" }
   local env = env_util.current(opts.no_browser and { NO_OPEN_BROWSER = "1" } or nil)
   return vim.system(cmd, { env = env }, opts.on_exit)
 end
 
 function M.logout(callback)
-  local cmd = { config.get().agent_command, "logout" }
+  local cmd = agent_argv("logout")
+  if not cmd then
+    if callback then
+      callback(false)
+    end
+    return
+  end
   vim.system(cmd, {}, function(obj)
     if callback then
       callback(obj.code == 0)
@@ -46,7 +62,13 @@ function M.logout(callback)
 end
 
 function M.about(callback)
-  local cmd = { config.get().agent_command, "about", "--format", "json" }
+  local cmd = agent_argv("about", "--format", "json")
+  if not cmd then
+    if callback then
+      callback("", "agent not found", 1)
+    end
+    return
+  end
   vim.system(cmd, {}, function(obj)
     if callback then
       callback(obj.stdout, obj.stderr, obj.code)

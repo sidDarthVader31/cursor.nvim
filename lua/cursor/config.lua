@@ -2,6 +2,7 @@ local M = {}
 
 local defaults = {
   agent_command = "agent",
+  agent_path = nil, -- full path if GUI Neovim can't find agent in PATH
   agent_args = { "acp" },
   width = 0.40,
   layout = "split", -- "split" (normal windows) or "float" (overlay)
@@ -9,6 +10,7 @@ local defaults = {
   return_to_code_on_open = true,
   border = "rounded",
   auto_start = false,
+  auto_resolve_agent = true, -- find agent via PATH, common paths, and login shell
   project_root = nil,
   log_level = "warn",
   permissions = {

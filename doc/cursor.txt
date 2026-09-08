@@ -15,7 +15,11 @@ INTRODUCTION                                         *cursor-introduction*
 cursor.nvim is an ACP client for the Cursor Agent CLI. It provides a native
 Neovim chat panel, model/effort picker, and permission prompts.
 
-Requires Neovim 0.11+ and the `agent` executable on PATH.
+Requires Neovim 0.11+ and the Cursor Agent CLI (`agent`).
+
+On setup, cursor.nvim auto-resolves the CLI path (PATH, common install
+locations, and your login shell). Set `agent_path` only if auto-resolve
+fails — run `which agent` in your terminal for the path.
 
 Usage is billed to your Cursor account (same pool as Cursor desktop).
 
@@ -49,6 +53,8 @@ CONFIGURATION                                           *cursor-config*
 >
   require("cursor").setup({
     agent_command = "agent",
+    agent_path = nil,           -- override if auto-resolve fails
+    auto_resolve_agent = true,  -- PATH + common paths + login shell
     agent_args = { "acp" },
     width = 0.40,
     border = "rounded",

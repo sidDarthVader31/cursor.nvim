@@ -17,10 +17,25 @@ A Neovim plugin that brings a Cursor-like AI coding experience **inside Neovim**
 ## Requirements
 
 - Neovim **0.11+**
-- [Cursor Agent CLI](https://cursor.com/docs/cli/overview) (`agent` on `$PATH`)
+- [Cursor Agent CLI](https://cursor.com/docs/cli/overview) (`agent` binary)
 - A Cursor account (org SSO supported via browser login)
 
-## Install
+## Install Cursor CLI
+
+```bash
+curl https://cursor.com/install -fsS | bash
+```
+
+Verify in your **terminal** (not Neovim yet):
+
+```bash
+which agent
+agent --version
+```
+
+Typical install location: `~/.local/bin/agent`
+
+## Install the plugin
 
 ```lua
 -- lazy.nvim
@@ -28,21 +43,71 @@ A Neovim plugin that brings a Cursor-like AI coding experience **inside Neovim**
   "yourname/cursor.nvim",
   config = function()
     require("cursor").setup({
-      auto_start = false, -- do not spawn agent on Neovim startup
+      auto_start = false,
     })
   end,
 }
 ```
 
+You usually **do not** need to set `agent_path` manually — see below.
+
+## Finding `agent` automatically
+
+On `setup()`, cursor.nvim resolves the CLI in this order:
+
+1. `agent_path` in your config (if you set it)
+2. `agent` on Neovim's `PATH` (`vim.fn.exepath`)
+3. Common install locations (`~/.local/bin/agent`, `~/.cursor/bin/agent`, Homebrew paths, …)
+4. Your **login shell** (`sh -lc 'command -v agent'`) — fixes GUI Neovim not inheriting terminal `PATH`
+
+This is enabled by default (`auto_resolve_agent = true`). After setup, run `:CursorHealth` — it should show the resolved path.
+
+### When auto-resolve fails
+
+If `:CursorHealth` says agent not found, set the path explicitly:
+
+```bash
+# In your terminal:
+which agent
+# e.g. /Users/you/.local/bin/agent
+```
+
+```lua
+require("cursor").setup({
+  agent_path = vim.fn.expand("~/.local/bin/agent"), -- paste output of `which agent`
+})
+```
+
+> **Note:** `vim.fn.expand("which agent")` does **not** work — `expand` only expands `~` and env vars, it does not run shell commands. Use `which agent` in your terminal, or rely on auto-resolve.
+
+To disable shell lookup:
+
+```lua
+require("cursor").setup({
+  auto_resolve_agent = false,
+  agent_path = "/full/path/to/agent",
+})
+```
+
 ## Quick start
 
 ```vim
+:CursorHealth         " confirm agent path is found
 :CursorLogin          " SSO / browser auth (once per machine)
+:CursorRestart        " start ACP after login
 :CursorChat           " open chat panel
+```
+
+In the chat input:
+
+- **Enter** — send message
+- **Shift+Enter** — new line
+- **Ctrl+w h** — back to code (split layout)
+
+```vim
 :CursorModel          " pick model + effort + mode
 :CursorAsk Explain this function
-:CursorHealth         " diagnostics
-:checkhealth cursor   " Neovim health framework
+:checkhealth cursor
 ```
 
 ### Recommended mappings (not set by default)
@@ -53,6 +118,7 @@ vim.keymap.set("n", "<leader>ct", "<cmd>CursorToggle<cr>")
 vim.keymap.set("n", "<leader>ca", "<cmd>CursorAsk<cr>")
 vim.keymap.set("v", "<leader>ca", "<cmd>CursorAsk<cr>")
 vim.keymap.set("n", "<leader>cm", "<cmd>CursorModel<cr>")
+vim.keymap.set("n", "<leader>cf", "<cmd>CursorFocus<cr>")
 vim.keymap.set("n", "<leader>cx", "<cmd>CursorCancel<cr>")
 ```
 
@@ -84,6 +150,7 @@ If the browser still does not open (remote SSH, headless, etc.), use `:CursorLog
 | `:CursorAuthStatus` | Show `agent status` |
 | `:CursorStart` / `:CursorStop` / `:CursorRestart` | ACP process lifecycle |
 | `:CursorChat` / `:CursorClose` / `:CursorToggle` | Chat panel |
+| `:CursorFocus` / `:CursorFocusChat` / `:CursorFocusCode` | Focus input / history / code |
 | `:CursorAsk [prompt]` | Context-aware question |
 | `:CursorCancel` | Cancel active prompt |
 | `:CursorChats` | Session picker |
@@ -100,6 +167,15 @@ Inside `:CursorModel`:
 - `j` / `k` — move
 - `<CR>` — apply (window stays open)
 - `q` — close
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `ENOENT: no such file or directory (cmd): 'agent'` | Run `which agent` in terminal; set `agent_path` in setup |
+| `:CursorChat` opens but agent won't start | `:CursorLogin` then `:CursorRestart` |
+| Browser doesn't open on login | `:CursorLogin!` and copy the URL |
+| Commands do nothing | `:CursorHealth` — check agent path |
 
 ## License
 

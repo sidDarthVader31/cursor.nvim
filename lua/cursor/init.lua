@@ -8,7 +8,15 @@ local transport = require("cursor.transport")
 local M = {}
 
 function M.setup(opts)
-  config.setup(opts)
+  config.setup(opts or {})
+
+  if config.get().auto_resolve_agent then
+    local path = transport.resolve_agent()
+    if path then
+      config.setup(vim.tbl_deep_extend("force", config.get(), { agent_path = path }))
+    end
+  end
+
   require("cursor.highlight").setup()
   require("cursor.commands").setup()
   M.setup_recommended_mappings()
@@ -42,9 +50,11 @@ function M.restart(callback)
 end
 
 function M.chat()
-  require("cursor.ui").ensure_started(function(ok)
-    if ok then
-      require("cursor.ui").open()
+  require("cursor.ui").open()
+  require("cursor.ui").ensure_started(function(ok, err)
+    if not ok then
+      require("cursor.state").set_error(err or "Agent not available — see :CursorHealth")
+      require("cursor.ui").schedule_refresh()
     end
   end)
 end
@@ -58,15 +68,22 @@ function M.close()
 end
 
 function M.toggle()
-  require("cursor.ui").toggle()
+  local layout = require("cursor.ui.layout")
+  if layout.is_open() then
+    require("cursor.ui").close()
+  else
+    M.chat()
+  end
 end
 
 function M.ask(prompt)
-  require("cursor.ui").ensure_started(function(ok)
+  require("cursor.ui").open()
+  require("cursor.ui").ensure_started(function(ok, err)
     if not ok then
+      require("cursor.state").set_error(err or "Agent not available")
+      require("cursor.ui").schedule_refresh()
       return
     end
-    require("cursor.ui").open()
     if prompt and prompt ~= "" then
       require("cursor.ui.input").submit_with_context(prompt)
     else
@@ -94,6 +111,14 @@ function M.logout()
   end)
 end
 
+function M.focus_chat()
+  require("cursor.ui").focus_chat()
+end
+
+function M.focus_code()
+  require("cursor.ui").focus_code()
+end
+
 function M.auth_status()
   auth.status(function(data)
     vim.notify(vim.inspect(data), vim.log.levels.INFO)
@@ -112,7 +137,10 @@ function M.health()
   if agent_path then
     table.insert(lines, "✓ agent executable: " .. agent_path)
   else
-    table.insert(lines, "✗ agent executable: not found in PATH")
+    table.insert(lines, "✗ agent executable: not found")
+    table.insert(lines, "  → Run `which agent` in your terminal")
+    table.insert(lines, "  → Auto-resolve checks PATH, common paths, and login shell")
+    table.insert(lines, "  → Set agent_path in require('cursor').setup({ agent_path = '...' })")
   end
 
   if auth.is_api_key_set() then

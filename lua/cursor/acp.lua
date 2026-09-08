@@ -404,11 +404,12 @@ function M.start(opts, callback)
     end)
   end)
 
-  if not transport.start({ cwd = st.project_root }) then
+  local ok_start, start_err = transport.start({ cwd = st.project_root })
+  if not ok_start then
     if callback then
-      callback(false, "Failed to start transport")
+      callback(false, start_err or "Failed to start transport")
     end
-    return false, "Failed to start transport"
+    return false, start_err or "Failed to start transport"
   end
 
   M.initialize(function(_, init_err)

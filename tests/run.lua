@@ -182,6 +182,34 @@ local function run()
     assert_true(ran)
   end)
 
+  test("transport start without agent returns error", function()
+    local transport = require("cursor.transport")
+    transport.stop()
+    local orig_find = transport.find_agent
+    transport.find_agent = function()
+      return nil
+    end
+    local ok, err = transport.start()
+    transport.find_agent = orig_find
+    transport.stop()
+    assert_false(ok)
+    assert_true(err and err:find("agent") ~= nil)
+  end)
+
+  test("chat opens without agent", function()
+    local layout = require("cursor.ui.layout")
+    layout.close()
+    require("cursor.ui").open()
+    assert_true(layout.is_open())
+    layout.close()
+  end)
+
+  test("config auto_resolve default", function()
+    local config = require("cursor.config")
+    config.setup({})
+    assert_eq(config.get().auto_resolve_agent, true)
+  end)
+
   print(string.format("\n%d passed, %d failed", passed, failed))
   if failed > 0 then
     os.exit(1)

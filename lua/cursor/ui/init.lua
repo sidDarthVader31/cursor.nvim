@@ -90,13 +90,24 @@ function M.ensure_started(callback)
     end
     return
   end
+
+  if not transport.find_agent() then
+    local msg = "Cursor CLI `agent` not found — set agent_path in setup() or fix PATH"
+    if callback then
+      schedule.defer(function()
+        callback(false, msg)
+      end)
+    end
+    return
+  end
   local acp = require("cursor.acp")
   acp.start({}, function(ok, err)
     schedule.defer(function()
       if not ok then
-        vim.notify("[cursor] " .. (err or "Failed to start agent"), vim.log.levels.ERROR)
+        local msg = err or "Failed to start agent"
+        vim.notify("[cursor] " .. msg, vim.log.levels.ERROR)
         if callback then
-          callback(false, err)
+          callback(false, msg)
         end
         return
       end

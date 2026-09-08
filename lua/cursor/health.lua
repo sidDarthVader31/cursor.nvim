@@ -15,7 +15,9 @@ function M.check()
   if agent_path then
     vim.health.ok("agent executable: " .. agent_path)
   else
-    vim.health.error("agent executable not found in PATH")
+    vim.health.error("agent executable not found")
+    vim.health.info("Run `which agent` in your terminal, then set agent_path if auto-resolve failed")
+    vim.health.info("Example: require('cursor').setup({ agent_path = vim.fn.expand('~/.local/bin/agent') })")
   end
 
   local auth = require("cursor.auth")

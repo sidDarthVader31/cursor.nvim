@@ -1,6 +1,13 @@
 local M = {}
 
+M._setup = false
+
 function M.setup()
+  if M._setup then
+    return
+  end
+  M._setup = true
+
   local function cmd(name, fn, opts)
     opts = opts or {}
     vim.api.nvim_create_user_command(name, fn, opts)
@@ -67,11 +74,11 @@ function M.setup()
   end, {})
 
   cmd("CursorFocusChat", function()
-    require("cursor.ui.layout").focus_chat()
+    require("cursor").focus_chat()
   end, {})
 
   cmd("CursorFocusCode", function()
-    require("cursor.ui.layout").focus_code()
+    require("cursor").focus_code()
   end, {})
 
   cmd("CursorAsk", function(opts)
