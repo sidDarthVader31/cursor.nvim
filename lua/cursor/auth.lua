@@ -1,4 +1,5 @@
 local config = require("cursor.config")
+local env_util = require("cursor.env")
 local log = require("cursor.log")
 
 local M = {}
@@ -31,10 +32,7 @@ function M.login(opts)
     return nil
   end
   local cmd = { agent, "login" }
-  local env = vim.deepcopy(vim.env)
-  if opts.no_browser then
-    env.NO_OPEN_BROWSER = "1"
-  end
+  local env = env_util.current(opts.no_browser and { NO_OPEN_BROWSER = "1" } or nil)
   return vim.system(cmd, { env = env }, opts.on_exit)
 end
 

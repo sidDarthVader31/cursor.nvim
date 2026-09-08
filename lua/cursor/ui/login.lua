@@ -1,5 +1,6 @@
 local config = require("cursor.config")
 local transport = require("cursor.transport")
+local env_util = require("cursor.env")
 
 local M = {}
 
@@ -106,9 +107,8 @@ function M.open_terminal()
   vim.api.nvim_buf_set_option(term_buf, "bufhidden", "hide")
   vim.api.nvim_buf_set_name(term_buf, "cursor-login-terminal")
 
-  local cmd = vim.fn.shellescape(agent) .. " login"
+  local cmd = { agent, "login" }
   M.job_id = vim.fn.termopen(cmd, {
-    env = vim.env,
     on_exit = function(_, code, _)
       vim.schedule(function()
         on_login_exit(code)
@@ -142,8 +142,7 @@ function M.open_no_browser()
   })
 
   local captured = ""
-  local env = vim.deepcopy(vim.env)
-  env.NO_OPEN_BROWSER = "1"
+  local env = env_util.current({ NO_OPEN_BROWSER = "1" })
 
   vim.system({ agent, "login" }, {
     env = env,
