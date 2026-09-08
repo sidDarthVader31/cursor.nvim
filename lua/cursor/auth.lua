@@ -19,9 +19,18 @@ function M.status(callback)
   end)
 end
 
+--- Programmatic login (headless). Prefer require("cursor.ui.login").start() for UI.
 function M.login(opts)
   opts = opts or {}
-  local cmd = { config.get().agent_command, "login" }
+  local transport = require("cursor.transport")
+  local agent = transport.find_agent()
+  if not agent then
+    if opts.on_exit then
+      opts.on_exit({ code = 1, stdout = "", stderr = "agent not found" })
+    end
+    return nil
+  end
+  local cmd = { agent, "login" }
   local env = vim.deepcopy(vim.env)
   if opts.no_browser then
     env.NO_OPEN_BROWSER = "1"

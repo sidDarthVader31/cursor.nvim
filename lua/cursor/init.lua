@@ -59,36 +59,7 @@ function M.cancel()
 end
 
 function M.login(opts)
-  opts = opts or {}
-  local lines = {
-    "Opening browser for Cursor SSO…",
-    "If nothing opens, run: NO_OPEN_BROWSER=1 agent login",
-    "",
-    "Waiting for agent login to finish. Close this buffer when done.",
-  }
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.api.nvim_open_win(buf, true, {
-    relative = "editor",
-    width = 60,
-    height = #lines + 2,
-    col = math.floor((vim.o.columns - 60) / 2),
-    row = math.floor((vim.o.lines - #lines - 2) / 2),
-    style = "minimal",
-    border = "rounded",
-    title = " Cursor login ",
-  })
-
-  auth.login({
-    no_browser = opts.no_browser,
-    on_exit = function(obj)
-      if obj.code == 0 then
-        vim.notify("[cursor] Login successful. Run :CursorRestart", vim.log.levels.INFO)
-      else
-        vim.notify("[cursor] Login failed or cancelled", vim.log.levels.WARN)
-      end
-    end,
-  })
+  require("cursor.ui.login").start(opts or {})
 end
 
 function M.logout()

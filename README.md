@@ -60,11 +60,13 @@ vim.keymap.set("n", "<leader>cx", "<cmd>CursorCancel<cr>")
 
 The plugin does **not** store Cursor credentials. Authentication is delegated to the CLI:
 
-1. `:CursorLogin` — opens browser SSO flow (`agent login`)
-2. `:CursorLogin!` — print URL without opening browser (`NO_OPEN_BROWSER=1`)
+1. `:CursorLogin` — runs `agent login` in a **real Neovim terminal** so your browser can open for SSO
+2. `:CursorLogin!` — runs `NO_OPEN_BROWSER=1 agent login`, streams output into a float, and shows the login URL to copy
 3. `CURSOR_API_KEY` — for automation / CI (read from environment only)
 
 After login: `:CursorRestart`.
+
+If the browser still does not open (remote SSH, headless, etc.), use `:CursorLogin!` and open the printed URL manually.
 
 ## Token usage
 

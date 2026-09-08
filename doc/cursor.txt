@@ -22,8 +22,8 @@ Usage is billed to your Cursor account (same pool as Cursor desktop).
 ==============================================================================
 COMMANDS                                                 *cursor-commands*
 
-:CursorLogin                Browser/SSO login via agent login
-:CursorLogin!               Login without opening browser
+:CursorLogin                SSO login in a real terminal (browser opens)
+:CursorLogin!               Login URL only (NO_OPEN_BROWSER=1, copy URL)
 :CursorLogout               Log out and stop agent
 :CursorAuthStatus           Show authentication status
 :CursorStart                Start ACP process
