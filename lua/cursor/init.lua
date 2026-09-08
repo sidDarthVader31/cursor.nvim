@@ -9,6 +9,7 @@ local M = {}
 
 function M.setup(opts)
   config.setup(opts)
+  require("cursor.highlight").setup()
   require("cursor.commands").setup()
   M.setup_recommended_mappings()
 end

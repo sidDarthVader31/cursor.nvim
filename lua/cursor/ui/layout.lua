@@ -9,16 +9,6 @@ M.chat_win = nil
 M.input_win = nil
 M.main_win = nil
 
-local function setup_highlights()
-  vim.api.nvim_set_hl(0, "CursorTitle", { link = "Title" })
-  vim.api.nvim_set_hl(0, "CursorUser", { link = "Identifier" })
-  vim.api.nvim_set_hl(0, "CursorAgent", { link = "Comment" })
-  vim.api.nvim_set_hl(0, "CursorTool", { link = "Special" })
-  vim.api.nvim_set_hl(0, "CursorPickerCurrent", { link = "CursorLine" })
-  vim.api.nvim_set_hl(0, "CursorPickerTab", { link = "TabLineSel" })
-  vim.api.nvim_set_hl(0, "CursorPickerFilter", { link = "Question" })
-end
-
 local function ensure_buffers()
   if not M.chat_buf or not vim.api.nvim_buf_is_valid(M.chat_buf) then
     M.chat_buf = vim.api.nvim_create_buf(false, true)
@@ -147,7 +137,6 @@ function M.open_float()
 end
 
 function M.open()
-  setup_highlights()
   local layout = config.get().layout or "split"
   if layout == "float" then
     M.open_float()
