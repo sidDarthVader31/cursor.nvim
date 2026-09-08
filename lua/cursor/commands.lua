@@ -62,6 +62,18 @@ function M.setup()
     require("cursor").toggle()
   end, {})
 
+  cmd("CursorFocus", function()
+    require("cursor").focus()
+  end, {})
+
+  cmd("CursorFocusChat", function()
+    require("cursor.ui.layout").focus_chat()
+  end, {})
+
+  cmd("CursorFocusCode", function()
+    require("cursor.ui.layout").focus_code()
+  end, {})
+
   cmd("CursorAsk", function(opts)
     local prompt = opts.args
     if opts.range > 0 then

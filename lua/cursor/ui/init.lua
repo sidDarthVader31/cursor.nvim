@@ -44,7 +44,23 @@ function M.toggle()
 end
 
 function M.focus()
-  require("cursor.ui.layout").focus_input()
+  local layout = require("cursor.ui.layout")
+  if not layout.is_open() then
+    M.open()
+  end
+  layout.focus_input()
+end
+
+function M.focus_chat()
+  local layout = require("cursor.ui.layout")
+  if not layout.is_open() then
+    M.open()
+  end
+  layout.focus_chat()
+end
+
+function M.focus_code()
+  require("cursor.ui.layout").focus_code()
 end
 
 function M.ensure_started(callback)

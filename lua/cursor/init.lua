@@ -10,6 +10,26 @@ local M = {}
 function M.setup(opts)
   config.setup(opts)
   require("cursor.commands").setup()
+  M.setup_recommended_mappings()
+end
+
+function M.setup_recommended_mappings()
+  local cfg = config.get().mappings
+  local group = { noremap = true, silent = true }
+
+  local function map(key, rhs)
+    if key and key ~= "" and not vim.g.cursor_disable_mappings then
+      vim.keymap.set("n", key, rhs, group)
+    end
+  end
+
+  map(cfg.chat, "<cmd>CursorChat<cr>")
+  map(cfg.toggle, "<cmd>CursorToggle<cr>")
+  map(cfg.ask, "<cmd>CursorAsk<cr>")
+  map(cfg.cancel, "<cmd>CursorCancel<cr>")
+  map(cfg.focus, "<cmd>CursorFocus<cr>")
+  map(cfg.focus_chat, "<cmd>CursorFocusChat<cr>")
+  map(cfg.focus_code, "<cmd>CursorFocusCode<cr>")
 end
 
 function M.start(callback)
@@ -26,6 +46,10 @@ function M.chat()
       require("cursor.ui").open()
     end
   end)
+end
+
+function M.focus()
+  require("cursor.ui").focus()
 end
 
 function M.close()
