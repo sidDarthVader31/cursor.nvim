@@ -66,20 +66,20 @@ function M.handle_line(line)
 
   local st = state.get()
 
-  if decoded.id and decoded.result ~= nil then
-    local cb = st.pending_requests[decoded.id]
-    if cb then
-      st.pending_requests[decoded.id] = nil
-      cb(decoded.result, nil)
-    end
-    return nil
-  end
-
   if decoded.id and decoded.error then
     local cb = st.pending_requests[decoded.id]
     if cb then
       st.pending_requests[decoded.id] = nil
       cb(nil, decoded.error)
+    end
+    return nil
+  end
+
+  if decoded.id and rawget(decoded, "result") ~= nil then
+    local cb = st.pending_requests[decoded.id]
+    if cb then
+      st.pending_requests[decoded.id] = nil
+      cb(decoded.result, nil)
     end
     return nil
   end

@@ -1,0 +1,5 @@
+REQ method=initialize id=1 configId=
+INIT_COUNT=1
+REQ method=authenticate id=2 configId=
+REQ method=session/new id=3 configId=
+REQ method=session/set_config_option id=4 configId=model

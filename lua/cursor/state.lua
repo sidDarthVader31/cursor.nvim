@@ -9,6 +9,10 @@ M.states = {
   error = "error",
 }
 
+local function option_id(opt)
+  return opt.id or opt.configId
+end
+
 local initial = {
   status = M.states.stopped,
   process = nil,
@@ -64,7 +68,7 @@ function M.update_config_options(options)
   for _, opt in ipairs(M._state.config_options) do
     if opt.category == "model" then
       M._state.current_model = opt.currentValue
-    elseif opt.category == "thought_level" or opt.configId == "thought_level" then
+    elseif opt.category == "thought_level" or option_id(opt) == "thought_level" then
       M._state.current_effort = opt.currentValue
     elseif opt.category == "mode" then
       M._state.current_mode = opt.currentValue
@@ -82,11 +86,15 @@ end
 
 function M.get_config_option(config_id)
   for _, opt in ipairs(M._state.config_options) do
-    if opt.configId == config_id then
+    if option_id(opt) == config_id then
       return opt
     end
   end
   return nil
+end
+
+function M.option_id(opt)
+  return option_id(opt)
 end
 
 return M

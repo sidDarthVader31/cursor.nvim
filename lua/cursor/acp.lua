@@ -30,16 +30,28 @@ function M.setup_handlers()
     return permissions.handle(params, id)
   end)
 
-  rpc.on_request("fs/read_text_file", function(params)
-    return M.read_text_file(params)
+  rpc.on_request("fs/read_text_file", function(params, id)
+    local result, err = M.read_text_file(params)
+    if err then
+      return rpc.error_response(id, -32000, err)
+    end
+    return rpc.response(id, result)
   end)
 
-  rpc.on_request("fs/write_text_file", function(params)
-    return M.write_text_file(params)
+  rpc.on_request("fs/write_text_file", function(params, id)
+    local result, err = M.write_text_file(params)
+    if err then
+      return rpc.error_response(id, -32000, err)
+    end
+    return rpc.response(id, result)
   end)
 
-  rpc.on_request("terminal/create", function(params)
-    return M.terminal_create(params)
+  rpc.on_request("terminal/create", function(params, id)
+    local result, err = M.terminal_create(params)
+    if err then
+      return rpc.error_response(id, -32000, err)
+    end
+    return rpc.response(id, result)
   end)
 
   rpc.on_request("terminal/output", function(params)
@@ -132,15 +144,15 @@ end
 function M.read_text_file(params)
   local path = params.path or params.uri
   if not path then
-    return { error = "missing path" }
+    return nil, "missing path"
   end
   local root = state.get().project_root
   if not project.within_root(path, root) then
-    return { error = "path outside project root" }
+    return nil, "path outside project root"
   end
   local ok, content = pcall(vim.fn.readfile, path)
   if not ok then
-    return { error = "failed to read file" }
+    return nil, "failed to read file"
   end
   return { content = table.concat(content, "\n") }
 end
@@ -149,11 +161,11 @@ function M.write_text_file(params)
   local path = params.path or params.uri
   local content = params.content or ""
   if not path then
-    return { error = "missing path" }
+    return nil, "missing path"
   end
   local root = state.get().project_root
   if not project.within_root(path, root) then
-    return { error = "path outside project root" }
+    return nil, "path outside project root"
   end
   local lines = vim.split(content, "\n", { plain = true })
   vim.fn.writefile(lines, path)
@@ -167,7 +179,7 @@ function M.terminal_create(params)
     cmd = vim.split(cmd, "%s+", { trimempty = true })
   end
   if type(cmd) ~= "table" or #cmd == 0 then
-    return { error = "missing command" }
+    return nil, "missing command"
   end
 
   local term = {
@@ -214,7 +226,9 @@ function M.terminal_wait_for_exit(params)
   if not term then
     return { exitCode = 1 }
   end
-  -- async wait: poll briefly (non-blocking for MVP)
+  if not term.done then
+    return { exitCode = nil, running = true }
+  end
   return { exitCode = term.exit_code or 0 }
 end
 
@@ -301,7 +315,9 @@ function M.session_prompt(text, callback)
   if not session_id then
     state.set_error("No active session — run :CursorRestart")
     require("cursor.ui").schedule_refresh()
-    callback(nil, { message = "No active session" })
+    if callback then
+      callback(nil, { message = "No active session" })
+    end
     return
   end
 
@@ -327,7 +343,9 @@ function M.session_prompt(text, callback)
       state.get().assistant_buffer = ""
     end
     require("cursor.ui").schedule_refresh()
-    callback(result, err)
+    if callback then
+      callback(result, err)
+    end
   end)
 end
 
@@ -381,12 +399,56 @@ function M.set_config_option(config_id, value, value_type, callback)
   end)
 end
 
+local function finish_start(callback, ok, err)
+  if callback then
+    callback(ok, err)
+  end
+end
+
+local function run_session_new(callback)
+  M.session_new(function(_, session_err)
+    if session_err then
+      M.stop()
+      local msg = session_err.message or "session/new failed"
+      finish_start(callback, false, msg)
+      return
+    end
+    state.set_status(state.states.ready)
+    finish_start(callback, true)
+  end)
+end
+
+local function run_initialize_chain(callback)
+  M.initialize(function(_, init_err)
+    if init_err then
+      M.stop()
+      local msg = init_err.message or "initialize failed"
+      finish_start(callback, false, msg)
+      return
+    end
+    M.authenticate(function(_, auth_err)
+      if auth_err then
+        M.stop()
+        local msg = auth_err.message or "authentication failed — run :CursorLogin"
+        finish_start(callback, false, msg)
+        return
+      end
+      run_session_new(callback)
+    end)
+  end)
+end
+
 function M.start(opts, callback)
   opts = opts or {}
   M.setup_handlers()
 
   local st = state.get()
   st.project_root = opts.cwd or config.get().project_root or project.root()
+
+  if transport.is_running() and st.session_id then
+    finish_start(callback, true)
+    return true
+  end
 
   transport.set_message_handler(function(line)
     require("cursor.schedule").defer(function()
@@ -404,49 +466,18 @@ function M.start(opts, callback)
     end)
   end)
 
+  if transport.is_running() then
+    run_session_new(callback)
+    return true
+  end
+
   local ok_start, start_err = transport.start({ cwd = st.project_root })
   if not ok_start then
-    if callback then
-      callback(false, start_err or "Failed to start transport")
-    end
+    finish_start(callback, false, start_err or "Failed to start transport")
     return false, start_err or "Failed to start transport"
   end
 
-  M.initialize(function(_, init_err)
-    if init_err then
-      M.stop()
-      local msg = init_err.message or "initialize failed"
-      if callback then
-        callback(false, msg)
-      end
-      return
-    end
-    M.authenticate(function(_, auth_err)
-      if auth_err then
-        M.stop()
-        local msg = auth_err.message or "authentication failed — run :CursorLogin"
-        if callback then
-          callback(false, msg)
-        end
-        return
-      end
-      M.session_new(function(_, session_err)
-        if session_err then
-          M.stop()
-          local msg = session_err.message or "session/new failed"
-          if callback then
-            callback(false, msg)
-          end
-          return
-        end
-        state.set_status(state.states.ready)
-        if callback then
-          callback(true)
-        end
-      end)
-    end)
-  end)
-
+  run_initialize_chain(callback)
   return true
 end
 

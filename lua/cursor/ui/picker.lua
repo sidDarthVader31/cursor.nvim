@@ -1,5 +1,6 @@
 local acp = require("cursor.acp")
 local config = require("cursor.config")
+local schedule = require("cursor.schedule")
 local state = require("cursor.state")
 
 local M = {}
@@ -26,19 +27,20 @@ local function get_option_for_tab(tab)
     if opt.category == info.category then
       return opt
     end
-    if opt.configId == info.category then
+    if state.option_id(opt) == info.category then
       return opt
     end
   end
   return nil
 end
 
-local function build_items()
+function M.build_items()
   local opt = get_option_for_tab(M.tab)
   M.items = {}
   if not opt or not opt.options then
     return
   end
+  local config_id = state.option_id(opt)
   for _, o in ipairs(opt.options) do
     local name = o.name or o.value or "?"
     local desc = o.description or ""
@@ -53,7 +55,7 @@ local function build_items()
       table.insert(M.items, {
         value = o.value,
         line = line,
-        configId = opt.configId,
+        configId = config_id,
         value_type = opt.type == "boolean" and "boolean" or "id",
       })
     end
@@ -87,8 +89,11 @@ local function status_line()
   )
 end
 
-local function render()
-  build_items()
+function M.render()
+  if not M.buf or not vim.api.nvim_buf_is_valid(M.buf) then
+    return
+  end
+  M.build_items()
   local lines = {}
   table.insert(lines, tab_header())
   table.insert(lines, "")
@@ -115,15 +120,22 @@ end
 
 local function apply_current()
   local item = M.items[M.cursor]
-  if not item then
+  if not item or not item.configId then
+    vim.notify("[cursor] No config option selected", vim.log.levels.WARN)
     return
   end
   acp.set_config_option(item.configId, item.value, item.value_type or "id", function(_, err)
     if err then
-      vim.notify("[cursor] " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+      local msg = err.message or vim.inspect(err)
+      if msg:lower():find("internal error") then
+        msg = msg .. " — try :CursorRestart or set model at agent startup"
+      end
+      vim.notify("[cursor] " .. msg, vim.log.levels.ERROR)
     else
       require("cursor.ui.layout").update_title()
-      render()
+      schedule.ui(function()
+        M.render()
+      end)
     end
   end)
 end
@@ -133,11 +145,11 @@ local function setup_keymaps()
 
   vim.keymap.set("n", "j", function()
     M.cursor = math.min(#M.items, M.cursor + 1)
-    render()
+    M.render()
   end, opts)
   vim.keymap.set("n", "k", function()
     M.cursor = math.max(1, M.cursor - 1)
-    render()
+    M.render()
   end, opts)
   vim.keymap.set("n", "<CR>", apply_current, opts)
 
@@ -145,26 +157,28 @@ local function setup_keymaps()
     M.tab = "model"
     M.filter = ""
     M.cursor = 1
-    render()
+    M.render()
   end, opts)
   vim.keymap.set("n", "e", function()
     M.tab = "effort"
     M.filter = ""
     M.cursor = 1
-    render()
+    M.render()
   end, opts)
   vim.keymap.set("n", "o", function()
     M.tab = "mode"
     M.filter = ""
     M.cursor = 1
-    render()
+    M.render()
   end, opts)
 
   vim.keymap.set("n", "/", function()
     vim.ui.input({ prompt = "Filter: " }, function(input)
       M.filter = input or ""
       M.cursor = 1
-      render()
+      schedule.ui(function()
+        M.render()
+      end)
     end)
   end, opts)
 
@@ -176,133 +190,176 @@ local function setup_keymaps()
   end, opts)
 end
 
-function M.open(opts)
+local function open_picker_window(opts)
   opts = opts or {}
   M.tab = opts.tab or "model"
   M.filter = ""
   M.cursor = 1
 
-  require("cursor.ui").ensure_started(function(ok)
-    if not ok then
-      return
-    end
+  M.buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(M.buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(M.buf, "bufhidden", "wipe")
 
-    M.buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_option(M.buf, "buftype", "nofile")
-    vim.api.nvim_buf_set_option(M.buf, "bufhidden", "wipe")
+  local cfg = config.get().picker
+  local width = cfg.width or 70
+  local height = cfg.height or 18
 
-    local cfg = config.get().picker
-    local width = cfg.width or 70
-    local height = cfg.height or 18
+  M.win = vim.api.nvim_open_win(M.buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    col = math.floor((vim.o.columns - width) / 2),
+    row = math.floor((vim.o.lines - height) / 2),
+    style = "minimal",
+    border = config.get().border,
+    title = " Cursor ",
+    title_pos = "center",
+  })
 
-    M.win = vim.api.nvim_open_win(M.buf, true, {
-      relative = "editor",
-      width = width,
-      height = height,
-      col = math.floor((vim.o.columns - width) / 2),
-      row = math.floor((vim.o.lines - height) / 2),
-      style = "minimal",
-      border = config.get().border,
-      title = " Cursor ",
-      title_pos = "center",
-    })
+  setup_keymaps()
+  M.render()
 
-    setup_keymaps()
-    render()
-
-    if opts.apply_name then
-      for i, item in ipairs(M.items) do
-        if item.value == opts.apply_name or item.line:find(opts.apply_name, 1, true) then
-          M.cursor = i
-          apply_current()
-          break
-        end
+  if opts.apply_name then
+    for i, item in ipairs(M.items) do
+      if item.value == opts.apply_name or item.line:find(opts.apply_name, 1, true) then
+        M.cursor = i
+        apply_current()
+        break
       end
     end
+  end
+end
+
+function M.open(opts)
+  opts = opts or {}
+  require("cursor.ui").ensure_started(function(ok, err)
+    if not ok then
+      vim.notify("[cursor] " .. (err or "Agent not available"), vim.log.levels.ERROR)
+      return
+    end
+    schedule.ui(function()
+      open_picker_window(opts)
+    end)
   end)
+end
+
+local function refresh_chats()
+  if not M.buf or not vim.api.nvim_buf_is_valid(M.buf) then
+    return
+  end
+  local out = { "Cursor chats", "" }
+  for i, item in ipairs(M.items) do
+    table.insert(out, (i == M.cursor and "❯ " or "  ") .. item.line)
+  end
+  table.insert(out, "")
+  table.insert(out, " <CR> resume  n new  q close")
+  vim.api.nvim_buf_set_option(M.buf, "modifiable", true)
+  vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, out)
+  vim.api.nvim_buf_set_option(M.buf, "modifiable", false)
+end
+
+local function open_chats_window(chats)
+  M.items = {}
+  for _, c in ipairs(chats) do
+    table.insert(M.items, {
+      value = c.id,
+      line = c.title or c.id,
+      configId = "session",
+    })
+  end
+  table.insert(M.items, 1, { value = "new", line = "(new session)", configId = "session" })
+
+  M.buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(M.buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(M.buf, "bufhidden", "wipe")
+  M.cursor = 1
+
+  local cfg = config.get().picker
+  M.win = vim.api.nvim_open_win(M.buf, true, {
+    relative = "editor",
+    width = cfg.width or 70,
+    height = cfg.height or 18,
+    col = math.floor((vim.o.columns - (cfg.width or 70)) / 2),
+    row = math.floor((vim.o.lines - (cfg.height or 18)) / 2),
+    style = "minimal",
+    border = config.get().border,
+    title = " Cursor chats ",
+  })
+
+  refresh_chats()
+
+  local session = require("cursor.session")
+  local opts = { buffer = M.buf, nowait = true }
+
+  vim.keymap.set("n", "j", function()
+    M.cursor = math.min(#M.items, M.cursor + 1)
+    refresh_chats()
+  end, opts)
+  vim.keymap.set("n", "k", function()
+    M.cursor = math.max(1, M.cursor - 1)
+    refresh_chats()
+  end, opts)
+
+  local function after_session_action(ok, err, open_chat)
+    if not ok and err then
+      local msg = type(err) == "table" and (err.message or vim.inspect(err)) or tostring(err)
+      vim.notify("[cursor] " .. msg, vim.log.levels.ERROR)
+      return
+    end
+    M.close()
+    if open_chat then
+      require("cursor.ui").open()
+    end
+  end
+
+  vim.keymap.set("n", "<CR>", function()
+    local item = M.items[M.cursor]
+    if not item then
+      return
+    end
+    require("cursor.ui").ensure_started(function(started, start_err)
+      if not started then
+        vim.notify("[cursor] " .. (start_err or "Agent not available"), vim.log.levels.ERROR)
+        return
+      end
+      if item.value == "new" then
+        session.new(function(_, err)
+          after_session_action(err == nil, err, true)
+        end)
+      else
+        session.resume(item.value, function(_, err)
+          after_session_action(err == nil, err, true)
+        end)
+      end
+    end)
+  end, opts)
+
+  vim.keymap.set("n", "n", function()
+    require("cursor.ui").ensure_started(function(started, start_err)
+      if not started then
+        vim.notify("[cursor] " .. (start_err or "Agent not available"), vim.log.levels.ERROR)
+        return
+      end
+      session.new(function(_, err)
+        after_session_action(err == nil, err, true)
+      end)
+    end)
+  end, opts)
+
+  vim.keymap.set("n", "q", function()
+    M.close()
+  end, opts)
+  vim.keymap.set("n", "<Esc>", function()
+    M.close()
+  end, opts)
 end
 
 function M.open_chats()
   local session = require("cursor.session")
   session.list_chats(function(chats)
-    M.items = {}
-    for _, c in ipairs(chats) do
-      table.insert(M.items, {
-        value = c.id,
-        line = c.title or c.id,
-        configId = "session",
-      })
-    end
-    table.insert(M.items, 1, { value = "new", line = "(new session)", configId = "session" })
-
-    M.buf = vim.api.nvim_create_buf(false, true)
-    M.cursor = 1
-    local lines = { "Cursor chats", "" }
-    for i, item in ipairs(M.items) do
-      table.insert(lines, (i == 1 and "❯ " or "  ") .. item.line)
-    end
-    table.insert(lines, "")
-    table.insert(lines, " <CR> resume  n new  q close")
-
-    local cfg = config.get().picker
-    M.win = vim.api.nvim_open_win(M.buf, true, {
-      relative = "editor",
-      width = cfg.width or 70,
-      height = cfg.height or 18,
-      col = math.floor((vim.o.columns - (cfg.width or 70)) / 2),
-      row = math.floor((vim.o.lines - (cfg.height or 18)) / 2),
-      style = "minimal",
-      border = config.get().border,
-      title = " Cursor chats ",
-    })
-
-    vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
-
-    local function refresh_chats()
-      local out = { "Cursor chats", "" }
-      for i, item in ipairs(M.items) do
-        table.insert(out, (i == M.cursor and "❯ " or "  ") .. item.line)
-      end
-      table.insert(out, "")
-      table.insert(out, " <CR> resume  n new  q close")
-      vim.api.nvim_buf_set_option(M.buf, "modifiable", true)
-      vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, out)
-      vim.api.nvim_buf_set_option(M.buf, "modifiable", false)
-    end
-
-    vim.keymap.set("n", "j", function()
-      M.cursor = math.min(#M.items, M.cursor + 1)
-      refresh_chats()
-    end, { buffer = M.buf })
-    vim.keymap.set("n", "k", function()
-      M.cursor = math.max(1, M.cursor - 1)
-      refresh_chats()
-    end, { buffer = M.buf })
-    vim.keymap.set("n", "<CR>", function()
-      local item = M.items[M.cursor]
-      if not item then
-        return
-      end
-      if item.value == "new" then
-        session.new(function()
-          M.close()
-          require("cursor.ui").open()
-        end)
-      else
-        session.resume(item.value, function()
-          M.close()
-          require("cursor.ui").open()
-        end)
-      end
-    end, { buffer = M.buf })
-    vim.keymap.set("n", "n", function()
-      session.new(function()
-        M.close()
-      end)
-    end, { buffer = M.buf })
-    vim.keymap.set("n", "q", function()
-      M.close()
-    end, { buffer = M.buf })
+    schedule.ui(function()
+      open_chats_window(chats)
+    end)
   end)
 end
 

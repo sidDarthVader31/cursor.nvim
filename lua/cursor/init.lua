@@ -7,6 +7,8 @@ local transport = require("cursor.transport")
 
 local M = {}
 
+M._mapped_keys = {}
+
 function M.setup(opts)
   config.setup(opts or {})
 
@@ -23,22 +25,46 @@ function M.setup(opts)
 end
 
 function M.setup_recommended_mappings()
-  local cfg = config.get().mappings
+  local cfg = config.get()
+  if not cfg.mappings_enabled then
+    M.clear_recommended_mappings()
+    return
+  end
+
+  local mappings = cfg.mappings or {}
   local group = { noremap = true, silent = true }
 
   local function map(key, rhs)
     if key and key ~= "" and not vim.g.cursor_disable_mappings then
       vim.keymap.set("n", key, rhs, group)
+      M._mapped_keys[key] = true
     end
   end
 
-  map(cfg.chat, "<cmd>CursorChat<cr>")
-  map(cfg.toggle, "<cmd>CursorToggle<cr>")
-  map(cfg.ask, "<cmd>CursorAsk<cr>")
-  map(cfg.cancel, "<cmd>CursorCancel<cr>")
-  map(cfg.focus, "<cmd>CursorFocus<cr>")
-  map(cfg.focus_chat, "<cmd>CursorFocusChat<cr>")
-  map(cfg.focus_code, "<cmd>CursorFocusCode<cr>")
+  M.clear_recommended_mappings()
+
+  map(mappings.chat, "<cmd>CursorChat<cr>")
+  map(mappings.toggle, "<cmd>CursorToggle<cr>")
+  map(mappings.ask, "<cmd>CursorAsk<cr>")
+  map(mappings.cancel, "<cmd>CursorCancel<cr>")
+  map(mappings.focus, "<cmd>CursorFocus<cr>")
+  map(mappings.focus_chat, "<cmd>CursorFocusChat<cr>")
+  map(mappings.focus_code, "<cmd>CursorFocusCode<cr>")
+end
+
+function M.clear_recommended_mappings()
+  for key in pairs(M._mapped_keys) do
+    pcall(vim.keymap.del, "n", key)
+  end
+  M._mapped_keys = {}
+end
+
+--- Reload plugin modules for development (does not re-run plugin/cursor.lua).
+function M.reload(opts)
+  M.clear_recommended_mappings()
+  require("cursor.commands")._setup = false
+  require("cursor.highlight")._done = false
+  M.setup(opts or {})
 end
 
 function M.start(callback)

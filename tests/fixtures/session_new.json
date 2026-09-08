@@ -1,0 +1,62 @@
+{
+  "sessionId": "sess_test_001",
+  "configOptions": [
+    {
+      "id": "model",
+      "name": "Model",
+      "category": "model",
+      "type": "select",
+      "currentValue": "model-1",
+      "options": [
+        {
+          "value": "model-1",
+          "name": "Model 1",
+          "description": "Fast model"
+        },
+        {
+          "value": "model-2",
+          "name": "Model 2",
+          "description": "Powerful model"
+        }
+      ]
+    },
+    {
+      "id": "thought_level",
+      "name": "Effort",
+      "category": "thought_level",
+      "type": "select",
+      "currentValue": "medium",
+      "options": [
+        {
+          "value": "low",
+          "name": "Low"
+        },
+        {
+          "value": "medium",
+          "name": "Medium"
+        },
+        {
+          "value": "high",
+          "name": "High"
+        }
+      ]
+    },
+    {
+      "id": "mode",
+      "name": "Mode",
+      "category": "mode",
+      "type": "select",
+      "currentValue": "ask",
+      "options": [
+        {
+          "value": "ask",
+          "name": "Ask"
+        },
+        {
+          "value": "code",
+          "name": "Code"
+        }
+      ]
+    }
+  ]
+}

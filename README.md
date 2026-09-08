@@ -44,6 +44,16 @@ Typical install location: `~/.local/bin/agent`
   config = function()
     require("cursor").setup({
       auto_start = false,
+      mappings_enabled = true,
+      mappings = {
+        chat = "<leader>cc",
+        toggle = "<leader>ct",
+        ask = "<leader>ca",
+        cancel = "<leader>cx",
+        focus = "<leader>cf",
+        focus_chat = "<leader>ch",
+        focus_code = "<leader>cb",
+      },
     })
   end,
 }
@@ -110,7 +120,26 @@ In the chat input:
 :checkhealth cursor
 ```
 
-### Recommended mappings (not set by default)
+### Recommended mappings (opt-in)
+
+Mappings are **not** set unless you enable them:
+
+```lua
+require("cursor").setup({
+  mappings_enabled = true,
+  mappings = {
+    chat = "<leader>cc",
+    toggle = "<leader>ct",
+    ask = "<leader>ca",
+    cancel = "<leader>cx",
+    focus = "<leader>cf",
+    focus_chat = "<leader>ch",
+    focus_code = "<leader>cb",
+  },
+})
+```
+
+Or set them manually:
 
 ```lua
 vim.keymap.set("n", "<leader>cc", "<cmd>CursorChat<cr>")
@@ -174,8 +203,20 @@ Inside `:CursorModel`:
 |---------|-----|
 | `ENOENT: no such file or directory (cmd): 'agent'` | Run `which agent` in terminal; set `agent_path` in setup |
 | `:CursorChat` opens but agent won't start | `:CursorLogin` then `:CursorRestart` |
+| `:CursorModel` shows Internal error | Run `:CursorRestart` after login; ensure a session is active |
+| Keymaps don't update after config change | Set `mappings_enabled = true` and call `require("cursor").reload()` |
 | Browser doesn't open on login | `:CursorLogin!` and copy the URL |
 | Commands do nothing | `:CursorHealth` — check agent path |
+
+## Development
+
+```bash
+make test                              # run all headless tests
+make test-file FILE=tests/unit/foo.lua # run one spec file
+make smoke                             # quick load check
+```
+
+Tests use a fake ACP agent (`tests/fake_agent.sh`) so CI does not need the real `agent` binary.
 
 ## License
 

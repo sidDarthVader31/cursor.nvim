@@ -149,11 +149,16 @@ function M.start(opts)
         log.error("stderr error: " .. tostring(err))
       end
     end,
-  }, function(code, signal)
+  }, function(obj)
+    if transport.process ~= proc then
+      return
+    end
     transport.running = false
     transport.process = nil
     state.set_status(state.states.stopped)
     if transport.on_exit then
+      local code = type(obj) == "table" and obj.code or obj
+      local signal = type(obj) == "table" and obj.signal or nil
       transport.on_exit(code, signal)
     end
   end)

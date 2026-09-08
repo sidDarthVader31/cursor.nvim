@@ -1,5 +1,6 @@
 local config = require("cursor.config")
 local env_util = require("cursor.env")
+local schedule = require("cursor.schedule")
 local transport = require("cursor.transport")
 
 local M = {}
@@ -19,16 +20,18 @@ function M.status(callback)
     return
   end
   vim.system(cmd, {}, function(obj)
-    if obj.code ~= 0 then
-      callback({ authenticated = false, raw = obj.stderr })
-      return
-    end
-    local ok, data = pcall(vim.json.decode, obj.stdout)
-    if ok and data then
-      callback(data)
-    else
-      callback({ authenticated = obj.stdout and obj.stdout ~= "", raw = obj.stdout })
-    end
+    schedule.ui(function()
+      if obj.code ~= 0 then
+        callback({ authenticated = false, raw = obj.stderr })
+        return
+      end
+      local ok, data = pcall(vim.json.decode, obj.stdout)
+      if ok and data then
+        callback(data)
+      else
+        callback({ authenticated = obj.stdout and obj.stdout ~= "", raw = obj.stdout })
+      end
+    end)
   end)
 end
 
@@ -55,9 +58,11 @@ function M.logout(callback)
     return
   end
   vim.system(cmd, {}, function(obj)
-    if callback then
-      callback(obj.code == 0)
-    end
+    schedule.ui(function()
+      if callback then
+        callback(obj.code == 0)
+      end
+    end)
   end)
 end
 
@@ -70,9 +75,11 @@ function M.about(callback)
     return
   end
   vim.system(cmd, {}, function(obj)
-    if callback then
-      callback(obj.stdout, obj.stderr, obj.code)
-    end
+    schedule.ui(function()
+      if callback then
+        callback(obj.stdout, obj.stderr, obj.code)
+      end
+    end)
   end)
 end
 

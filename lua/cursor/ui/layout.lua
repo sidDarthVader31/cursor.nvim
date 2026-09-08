@@ -95,6 +95,10 @@ function M.open_split()
 end
 
 function M.open_float()
+  if M.is_open() then
+    M.focus_input()
+    return
+  end
   ensure_buffers()
   local cfg = config.get()
   local width = math.floor(vim.o.columns * cfg.width)

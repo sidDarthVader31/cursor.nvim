@@ -1,57 +1,55 @@
 local acp = require("cursor.acp")
 local config = require("cursor.config")
-local context = require("cursor.context")
 local state = require("cursor.state")
-local transport = require("cursor.transport")
 local usage = require("cursor.usage")
 
 local M = {}
+
+local INPUT_KEYS = {}
 
 local function insert_newline()
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", true)
 end
 
+local function clear_keymaps(buf)
+  for _, key in ipairs(INPUT_KEYS) do
+    pcall(vim.keymap.del, { "i" }, key, { buffer = buf })
+  end
+  INPUT_KEYS = {}
+end
+
 function M.setup(buf)
+  clear_keymaps(buf)
   local cfg = config.get().mappings
 
   local function bind_submit(key)
     if not key or key == "" then
       return
     end
-    vim.api.nvim_buf_set_keymap(buf, "i", key, "", {
-      noremap = true,
-      silent = true,
-      callback = function()
-        M.submit()
-      end,
-    })
+    vim.keymap.set("i", key, function()
+      M.submit()
+    end, { buffer = buf, noremap = true, silent = true })
+    table.insert(INPUT_KEYS, key)
   end
 
   local function bind_newline(key)
     if not key or key == "" then
       return
     end
-    vim.api.nvim_buf_set_keymap(buf, "i", key, "", {
-      noremap = true,
-      silent = true,
-      callback = insert_newline,
-    })
+    vim.keymap.set("i", key, insert_newline, { buffer = buf, noremap = true, silent = true })
+    table.insert(INPUT_KEYS, key)
   end
 
-  -- Cursor-like: Enter sends, Shift+Enter (or Ctrl+J) adds a newline
   bind_submit(cfg.submit or "<CR>")
   bind_submit(cfg.submit_alt or "<C-CR>")
   bind_newline(cfg.newline or "<S-CR>")
   bind_newline(cfg.newline_alt or "<C-j>")
 
-  vim.api.nvim_buf_set_keymap(buf, "i", "<C-c>", "", {
-    noremap = true,
-    silent = true,
-    callback = function()
-      acp.session_cancel()
-      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
-    end,
-  })
+  vim.keymap.set("i", "<C-c>", function()
+    acp.session_cancel()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
+  end, { buffer = buf, noremap = true, silent = true })
+  table.insert(INPUT_KEYS, "<C-c>")
 end
 
 function M.input_title()
@@ -102,6 +100,7 @@ function M.submit()
     return
   end
 
+  local transport = require("cursor.transport")
   if not transport.is_running() or not state.get().session_id then
     require("cursor.ui").ensure_started(function(started, start_err)
       if not started then
@@ -117,6 +116,7 @@ function M.submit()
 end
 
 function M.submit_with_context(user_text)
+  local context = require("cursor.context")
   local prompt = context.from_editor(user_text)
   local layout = require("cursor.ui.layout")
   if layout.input_buf then

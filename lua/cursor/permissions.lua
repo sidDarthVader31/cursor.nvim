@@ -1,6 +1,7 @@
 local config = require("cursor.config")
 local log = require("cursor.log")
 local rpc = require("cursor.rpc")
+local schedule = require("cursor.schedule")
 local state = require("cursor.state")
 local transport = require("cursor.transport")
 
@@ -8,24 +9,45 @@ local M = {}
 
 local pending = {}
 
+local function option_id(option)
+  return option.id or option.optionId or option.name
+end
+
 function M.handle(params, request_id)
   local cfg = config.get().permissions
   local default = cfg.default or "ask"
 
   if default == "deny" then
-    vim.schedule(function()
-      M.respond(request_id, "reject-once")
+    schedule.ui(function()
+      M.respond(request_id, M.default_option_id(params, "reject"))
     end)
     return nil
   end
 
   table.insert(pending, { params = params, id = request_id })
 
-  vim.schedule(function()
+  schedule.ui(function()
     require("cursor.ui.permission").show(params, request_id)
   end)
 
   return nil
+end
+
+function M.default_option_id(params, kind)
+  local options = params.options or (params.toolCall and params.toolCall.options) or {}
+  for _, opt in ipairs(options) do
+    local id = option_id(opt)
+    if id and id:find(kind, 1, true) then
+      return id
+    end
+  end
+  if kind == "reject" then
+    return "reject-once"
+  end
+  if kind == "allow" then
+    return "allow-once"
+  end
+  return kind .. "-once"
 end
 
 function M.respond(request_id, option_id)

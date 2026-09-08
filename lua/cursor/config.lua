@@ -36,6 +36,7 @@ local defaults = {
     height = 18,
   },
   ui_flush_ms = 30,
+  mappings_enabled = false,
 }
 
 M._config = vim.deepcopy(defaults)

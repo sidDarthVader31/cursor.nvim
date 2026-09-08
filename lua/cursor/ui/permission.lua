@@ -32,25 +32,25 @@ function M.show(params, request_id)
     title_pos = "center",
   })
 
-  local function respond(option)
-    permissions.respond(request_id, option)
+  local function respond(kind)
+    permissions.respond(request_id, permissions.default_option_id(params, kind))
     M.close()
   end
 
   vim.keymap.set("n", "a", function()
-    respond("allow-once")
+    respond("allow")
   end, { buffer = M.buf, nowait = true })
   vim.keymap.set("n", "s", function()
-    respond("allow-always")
+    respond("session")
   end, { buffer = M.buf, nowait = true })
   vim.keymap.set("n", "d", function()
-    respond("reject-once")
+    respond("reject")
   end, { buffer = M.buf, nowait = true })
   vim.keymap.set("n", "q", function()
-    respond("reject-once")
+    respond("reject")
   end, { buffer = M.buf, nowait = true })
   vim.keymap.set("n", "<Esc>", function()
-    respond("reject-once")
+    respond("reject")
   end, { buffer = M.buf, nowait = true })
 end
 
