@@ -20,7 +20,6 @@ function M.refresh()
   local layout = require("cursor.ui.layout")
   if layout.is_open() then
     require("cursor.ui.chat").render()
-    require("cursor.ui.activity").render()
     layout.update_title()
   end
 end

@@ -10,24 +10,11 @@ M.tab = "model"
 M.filter = ""
 M.cursor = 1
 M.items = {}
-M.on_select = nil
 
 local TABS = {
   model = { key = "m", label = "Model", category = "model" },
   effort = { key = "e", label = "Effort", category = "thought_level" },
   mode = { key = "o", label = "Mode", category = "mode" },
-}
-
-local FALLBACK = {
-  effort = {
-    { value = "medium", name = "medium", description = "default · cheaper" },
-    { value = "high", name = "high", description = "more reasoning · more tokens" },
-  },
-  mode = {
-    { value = "agent", name = "agent", description = "edit + terminal (asks permission)" },
-    { value = "plan", name = "plan", description = "design first, read-mostly" },
-    { value = "ask", name = "ask", description = "Q&A, no edits" },
-  },
 }
 
 local function get_option_for_tab(tab)
@@ -36,15 +23,12 @@ local function get_option_for_tab(tab)
     return nil
   end
   for _, opt in ipairs(state.get().config_options) do
-    if opt.category == info.category or opt.configId == info.category then
+    if opt.category == info.category then
       return opt
     end
-  end
-  if tab == "effort" then
-    return { configId = "thought_level", options = FALLBACK.effort, currentValue = "medium" }
-  end
-  if tab == "mode" then
-    return { configId = "mode", options = FALLBACK.mode, currentValue = "agent" }
+    if opt.configId == info.category then
+      return opt
+    end
   end
   return nil
 end
@@ -52,12 +36,11 @@ end
 local function build_items()
   local opt = get_option_for_tab(M.tab)
   M.items = {}
-  if not opt then
+  if not opt or not opt.options then
     return
   end
-  local options = opt.options or {}
-  for _, o in ipairs(options) do
-    local name = o.name or o.value
+  for _, o in ipairs(opt.options) do
+    local name = o.name or o.value or "?"
     local desc = o.description or ""
     local line = name
     if desc ~= "" then
@@ -67,7 +50,12 @@ local function build_items()
       line = line .. "     (current)"
     end
     if M.filter == "" or name:lower():find(M.filter:lower(), 1, true) then
-      table.insert(M.items, { value = o.value, line = line, configId = opt.configId })
+      table.insert(M.items, {
+        value = o.value,
+        line = line,
+        configId = opt.configId,
+        value_type = opt.type == "boolean" and "boolean" or "id",
+      })
     end
   end
   if M.cursor > #M.items then
@@ -94,8 +82,8 @@ local function status_line()
   return string.format(
     " current: %s · %s · %s ",
     st.current_model or "?",
-    st.current_effort or "medium",
-    st.current_mode or "agent"
+    st.current_effort or "?",
+    st.current_mode or "?"
   )
 end
 
@@ -109,7 +97,7 @@ local function render()
     table.insert(lines, "")
   end
   if #M.items == 0 then
-    table.insert(lines, "  (no matches)")
+    table.insert(lines, "  (no options — open chat first or run :CursorRestart)")
   else
     for i, item in ipairs(M.items) do
       local prefix = i == M.cursor and "❯ " or "  "
@@ -130,9 +118,9 @@ local function apply_current()
   if not item then
     return
   end
-  acp.set_config_option(item.configId, item.value, "id", function(_, err)
+  acp.set_config_option(item.configId, item.value, item.value_type or "id", function(_, err)
     if err then
-      vim.notify("[cursor] " .. (err.message or "failed to set option"), vim.log.levels.ERROR)
+      vim.notify("[cursor] " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
     else
       require("cursor.ui.layout").update_title()
       render()
@@ -178,10 +166,6 @@ local function setup_keymaps()
       M.cursor = 1
       render()
     end)
-  end, opts)
-
-  vim.keymap.set("i", "<Esc>", function()
-    vim.cmd("stopinsert")
   end, opts)
 
   vim.keymap.set({ "n", "i" }, "q", function()
@@ -241,7 +225,6 @@ end
 function M.open_chats()
   local session = require("cursor.session")
   session.list_chats(function(chats)
-    M.tab = "chats"
     M.items = {}
     for _, c in ipairs(chats) do
       table.insert(M.items, {
@@ -275,13 +258,25 @@ function M.open_chats()
 
     vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
 
+    local function refresh_chats()
+      local out = { "Cursor chats", "" }
+      for i, item in ipairs(M.items) do
+        table.insert(out, (i == M.cursor and "❯ " or "  ") .. item.line)
+      end
+      table.insert(out, "")
+      table.insert(out, " <CR> resume  n new  q close")
+      vim.api.nvim_buf_set_option(M.buf, "modifiable", true)
+      vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, out)
+      vim.api.nvim_buf_set_option(M.buf, "modifiable", false)
+    end
+
     vim.keymap.set("n", "j", function()
       M.cursor = math.min(#M.items, M.cursor + 1)
-      M.open_chats_refresh()
+      refresh_chats()
     end, { buffer = M.buf })
     vim.keymap.set("n", "k", function()
       M.cursor = math.max(1, M.cursor - 1)
-      M.open_chats_refresh()
+      refresh_chats()
     end, { buffer = M.buf })
     vim.keymap.set("n", "<CR>", function()
       local item = M.items[M.cursor]
@@ -309,10 +304,6 @@ function M.open_chats()
       M.close()
     end, { buffer = M.buf })
   end)
-end
-
-function M.open_chats_refresh()
-  -- simplified re-render for chat list cursor
 end
 
 function M.close()

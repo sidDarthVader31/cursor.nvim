@@ -107,12 +107,6 @@ function M.handle_session_update(params)
       status = update.status or "pending",
       kind = update.kind,
     }
-    state.add_message({
-      role = "tool",
-      tool_id = id,
-      title = update.title or update.kind or "tool",
-      status = update.status or "pending",
-    })
     require("cursor.ui").schedule_refresh()
   elseif kind == "tool_call_update" then
     local id = update.toolCallId or update.id
@@ -305,12 +299,16 @@ end
 function M.session_prompt(text, callback)
   local session_id = state.get().session_id
   if not session_id then
+    state.set_error("No active session — run :CursorRestart")
+    require("cursor.ui").schedule_refresh()
     callback(nil, { message = "No active session" })
     return
   end
 
+  state.clear_error()
   state.get().prompting = true
   state.get().assistant_buffer = ""
+  state.get().tool_calls = {}
   state.set_status(state.states.prompting)
 
   send_request("session/prompt", {
@@ -319,6 +317,11 @@ function M.session_prompt(text, callback)
   }, function(result, err)
     state.get().prompting = false
     state.set_status(state.states.ready)
+    if err then
+      local msg = err.message or vim.inspect(err)
+      state.set_error(msg)
+      vim.notify("[cursor] prompt failed: " .. msg, vim.log.levels.ERROR)
+    end
     if state.get().assistant_buffer and state.get().assistant_buffer ~= "" then
       state.add_message({ role = "assistant", content = state.get().assistant_buffer })
       state.get().assistant_buffer = ""
@@ -348,8 +351,10 @@ end
 function M.set_config_option(config_id, value, value_type, callback)
   local session_id = state.get().session_id
   if not session_id then
+    local msg = "No active session — run :CursorRestart"
+    vim.notify("[cursor] " .. msg, vim.log.levels.ERROR)
     if callback then
-      callback(nil, { message = "No active session" })
+      callback(nil, { message = msg })
     end
     return
   end
@@ -359,6 +364,13 @@ function M.set_config_option(config_id, value, value_type, callback)
     type = value_type or "id",
     value = value,
   }, function(result, err)
+    if err then
+      local msg = err.message or vim.inspect(err)
+      state.set_error(msg)
+      vim.notify("[cursor] config failed: " .. msg, vim.log.levels.ERROR)
+    else
+      state.clear_error()
+    end
     if result and result.configOptions then
       state.update_config_options(result.configOptions)
     end

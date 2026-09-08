@@ -88,6 +88,10 @@ function M.handle_line(line)
     local handler = M.request_handlers[decoded.method]
     if handler then
       local result = handler(decoded.params or {}, decoded.id)
+      -- nil means async handler will respond later (e.g. permissions)
+      if result == nil then
+        return nil
+      end
       return M.response(decoded.id, result)
     end
     log.debug("Unhandled request: " .. decoded.method)

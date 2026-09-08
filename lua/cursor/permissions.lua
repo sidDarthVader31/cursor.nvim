@@ -13,9 +13,9 @@ function M.handle(params, request_id)
   local default = cfg.default or "ask"
 
   if default == "deny" then
-    transport.send(rpc.response(request_id, {
-      outcome = { outcome = "selected", optionId = "reject-once" },
-    }))
+    vim.schedule(function()
+      M.respond(request_id, "reject-once")
+    end)
     return nil
   end
 

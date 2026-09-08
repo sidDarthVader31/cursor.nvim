@@ -27,6 +27,7 @@ local initial = {
   assistant_buffer = "",
   active_assistant_id = nil,
   prompting = false,
+  last_error = nil,
   session_allow = {},
 }
 
@@ -69,6 +70,14 @@ function M.update_config_options(options)
       M._state.current_mode = opt.currentValue
     end
   end
+end
+
+function M.set_error(msg)
+  M._state.last_error = msg
+end
+
+function M.clear_error()
+  M._state.last_error = nil
 end
 
 function M.get_config_option(config_id)

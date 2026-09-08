@@ -36,6 +36,7 @@ local function run()
     config.setup({})
     assert_eq(config.get().agent_command, "agent")
     assert_eq(config.get().auto_start, false)
+    assert_eq(config.get().mappings.submit, "<CR>")
   end)
 
   test("state rpc ids", function()
@@ -43,6 +44,15 @@ local function run()
     state.reset()
     assert_eq(state.next_rpc_id(), 1)
     assert_eq(state.next_rpc_id(), 2)
+  end)
+
+  test("state error tracking", function()
+    local state = require("cursor.state")
+    state.reset()
+    state.set_error("boom")
+    assert_eq(state.get().last_error, "boom")
+    state.clear_error()
+    assert_eq(state.get().last_error, nil)
   end)
 
   test("rpc request encoding", function()
@@ -65,6 +75,22 @@ local function run()
     end)
     rpc.handle_line(vim.json.encode({ jsonrpc = "2.0", id = 1, result = { status = "ok" } }))
     assert_true(called)
+  end)
+
+  test("rpc async request returns nil response", function()
+    local rpc = require("cursor.rpc")
+    state = require("cursor.state")
+    state.reset()
+    rpc.on_request("test/async", function()
+      return nil
+    end)
+    local response = rpc.handle_line(vim.json.encode({
+      jsonrpc = "2.0",
+      id = 99,
+      method = "test/async",
+      params = {},
+    }))
+    assert_eq(response, nil)
   end)
 
   test("context lean prompt", function()
@@ -95,6 +121,55 @@ local function run()
   test("health report", function()
     local lines = require("cursor").health()
     assert_true(#lines > 0)
+  end)
+
+  test("chat render with tools", function()
+    local state = require("cursor.state")
+    local layout = require("cursor.ui.layout")
+    state.reset()
+    layout.chat_buf = vim.api.nvim_create_buf(false, true)
+    state.add_message({ role = "user", content = "hi" })
+    state.get().tool_calls["t1"] = { id = "t1", title = "Read foo.lua", status = "completed" }
+    require("cursor.ui.chat").render()
+    local lines = vim.api.nvim_buf_get_lines(layout.chat_buf, 0, -1, false)
+    assert_true(#lines > 0)
+    local text = table.concat(lines, "\n")
+    assert_true(text:find("Read foo.lua") ~= nil)
+    vim.api.nvim_buf_delete(layout.chat_buf, { force = true })
+    layout.chat_buf = nil
+  end)
+
+  test("chat render does not crash on empty buffer", function()
+    local state = require("cursor.state")
+    local layout = require("cursor.ui.layout")
+    state.reset()
+    layout.chat_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(layout.chat_buf, "modifiable", false)
+    require("cursor.ui.chat").render()
+    local lines = vim.api.nvim_buf_get_lines(layout.chat_buf, 0, -1, false)
+    assert_true(#lines >= 1)
+    vim.api.nvim_buf_delete(layout.chat_buf, { force = true })
+    layout.chat_buf = nil
+  end)
+
+  test("acp session update streaming", function()
+    local state = require("cursor.state")
+    local acp = require("cursor.acp")
+    state.reset()
+    acp.handle_session_update({
+      update = {
+        sessionUpdate = "agent_message_chunk",
+        content = { text = "hello" },
+      },
+    })
+    assert_eq(state.get().assistant_buffer, "hello")
+    acp.handle_session_update({
+      update = {
+        sessionUpdate = "agent_message_chunk",
+        content = { text = " world" },
+      },
+    })
+    assert_eq(state.get().assistant_buffer, "hello world")
   end)
 
   print(string.format("\n%d passed, %d failed", passed, failed))
