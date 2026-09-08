@@ -172,6 +172,16 @@ local function run()
     assert_eq(state.get().assistant_buffer, "hello world")
   end)
 
+  test("schedule ui defers in fast event", function()
+    local schedule = require("cursor.schedule")
+    local ran = false
+    schedule.ui(function()
+      ran = true
+    end)
+    -- outside fast event runs immediately
+    assert_true(ran)
+  end)
+
   print(string.format("\n%d passed, %d failed", passed, failed))
   if failed > 0 then
     os.exit(1)

@@ -1,4 +1,5 @@
 local config = require("cursor.config")
+local schedule = require("cursor.schedule")
 local state = require("cursor.state")
 
 local M = {}
@@ -17,71 +18,92 @@ function M.schedule_refresh()
 end
 
 function M.refresh()
-  local layout = require("cursor.ui.layout")
-  if layout.is_open() then
-    require("cursor.ui.chat").render()
-    layout.update_title()
-  end
+  schedule.ui(function()
+    local layout = require("cursor.ui.layout")
+    if layout.is_open() then
+      require("cursor.ui.chat").render()
+      layout.update_title()
+    end
+  end)
 end
 
 function M.open()
-  require("cursor.ui.layout").open()
-  M.refresh()
+  schedule.ui(function()
+    require("cursor.ui.layout").open()
+    M.refresh()
+  end)
 end
 
 function M.close()
-  require("cursor.ui.layout").close()
+  schedule.ui(function()
+    require("cursor.ui.layout").close()
+  end)
 end
 
 function M.toggle()
-  local layout = require("cursor.ui.layout")
-  if layout.is_open() then
-    layout.close()
-  else
-    M.open()
-  end
+  schedule.ui(function()
+    local layout = require("cursor.ui.layout")
+    if layout.is_open() then
+      layout.close()
+    else
+      require("cursor.ui.layout").open()
+      M.refresh()
+    end
+  end)
 end
 
 function M.focus()
-  local layout = require("cursor.ui.layout")
-  if not layout.is_open() then
-    M.open()
-  end
-  layout.focus_input()
+  schedule.ui(function()
+    local layout = require("cursor.ui.layout")
+    if not layout.is_open() then
+      layout.open()
+      M.refresh()
+    end
+    layout.focus_input()
+  end)
 end
 
 function M.focus_chat()
-  local layout = require("cursor.ui.layout")
-  if not layout.is_open() then
-    M.open()
-  end
-  layout.focus_chat()
+  schedule.ui(function()
+    local layout = require("cursor.ui.layout")
+    if not layout.is_open() then
+      layout.open()
+      M.refresh()
+    end
+    layout.focus_chat()
+  end)
 end
 
 function M.focus_code()
-  require("cursor.ui.layout").focus_code()
+  schedule.ui(function()
+    require("cursor.ui.layout").focus_code()
+  end)
 end
 
 function M.ensure_started(callback)
   local transport = require("cursor.transport")
   if transport.is_running() and state.get().session_id then
     if callback then
-      callback(true)
+      schedule.defer(function()
+        callback(true)
+      end)
     end
     return
   end
   local acp = require("cursor.acp")
   acp.start({}, function(ok, err)
-    if not ok then
-      vim.notify("[cursor] " .. (err or "Failed to start agent"), vim.log.levels.ERROR)
-      if callback then
-        callback(false, err)
+    schedule.defer(function()
+      if not ok then
+        vim.notify("[cursor] " .. (err or "Failed to start agent"), vim.log.levels.ERROR)
+        if callback then
+          callback(false, err)
+        end
+        return
       end
-      return
-    end
-    if callback then
-      callback(true)
-    end
+      if callback then
+        callback(true)
+      end
+    end)
   end)
 end
 

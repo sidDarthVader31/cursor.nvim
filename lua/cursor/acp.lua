@@ -389,15 +389,19 @@ function M.start(opts, callback)
   st.project_root = opts.cwd or config.get().project_root or project.root()
 
   transport.set_message_handler(function(line)
-    local response = rpc.handle_line(line)
-    if response then
-      transport.send(response)
-    end
+    require("cursor.schedule").defer(function()
+      local response = rpc.handle_line(line)
+      if response then
+        transport.send(response)
+      end
+    end)
   end)
 
   transport.set_exit_handler(function(code)
-    log.warn("Agent process exited with code " .. tostring(code))
-    state.set_status(state.states.stopped)
+    require("cursor.schedule").defer(function()
+      log.warn("Agent process exited with code " .. tostring(code))
+      state.set_status(state.states.stopped)
+    end)
   end)
 
   if not transport.start({ cwd = st.project_root }) then
