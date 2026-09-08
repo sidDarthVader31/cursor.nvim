@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "createdAtMs": 1700000200000,
+  "updatedAtMs": 1700000300000,
+  "hasConversation": true,
+  "title": "Add chats index",
+  "cwd": "/tmp/cursor-nvim-test-project"
+}

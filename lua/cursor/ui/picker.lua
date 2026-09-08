@@ -259,15 +259,19 @@ local function refresh_chats()
 end
 
 local function open_chats_window(chats)
+  local chats_index = require("cursor.chats_index")
   M.items = {}
   for _, c in ipairs(chats) do
     table.insert(M.items, {
       value = c.id,
-      line = c.title or c.id,
+      line = chats_index.format_chat_line(c),
       configId = "session",
     })
   end
   table.insert(M.items, 1, { value = "new", line = "(new session)", configId = "session" })
+  if #chats == 0 then
+    table.insert(M.items, { value = "empty", line = "(no chats for this project)", configId = "session" })
+  end
 
   M.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_option(M.buf, "buftype", "nofile")
@@ -314,7 +318,7 @@ local function open_chats_window(chats)
 
   vim.keymap.set("n", "<CR>", function()
     local item = M.items[M.cursor]
-    if not item then
+    if not item or item.value == "empty" then
       return
     end
     require("cursor.ui").ensure_started(function(started, start_err)

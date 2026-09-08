@@ -1,24 +1,6 @@
 local helper = require("tests.helper")
 local test = helper.test
-local assert_eq = helper.assert_eq
 local assert_true = helper.assert_true
-
-test("session parse_ls_line extracts id and title", function()
-  local session = require("cursor.session")
-  local parsed = session.parse_ls_line("sess_abc123def456  Fix login bug in picker")
-  assert_eq(parsed.id, "sess_abc123def456")
-  assert_eq(parsed.title, "Fix login bug in picker")
-end)
-
-test("session parse_ls_output skips blank lines", function()
-  local session = require("cursor.session")
-  local fixture = require("tests.fake_agent").fixture_path("agent_ls.txt")
-  local lines = vim.fn.readfile(fixture)
-  local chats = session.parse_ls_output(lines)
-  assert_eq(#chats, 3)
-  assert_eq(chats[1].id, "sess_abc123def456")
-  assert_true(chats[1].title:find("login") ~= nil)
-end)
 
 test("open_chats schedules UI from fast event callback", function()
   local picker = require("cursor.ui.picker")
@@ -27,9 +9,8 @@ test("open_chats schedules UI from fast event callback", function()
 
   local orig_list = session.list_chats
   session.list_chats = function(cb)
-    -- Simulate vim.system fast-event callback
     cb({
-      { id = "sess_1", title = "First chat" },
+      { id = "sess_1", title = "First chat", updatedAtMs = vim.loop.now() },
     })
   end
 
@@ -41,4 +22,37 @@ test("open_chats schedules UI from fast event callback", function()
 
   picker.close()
   session.list_chats = orig_list
+end)
+
+test("list_chats uses chats_index for project", function()
+  local config = require("cursor.config")
+  local session = require("cursor.session")
+  local project = require("cursor.project")
+  local fixture_root = vim.fn.fnamemodify(vim.fn.getcwd(), ":p") .. "tests/fixtures/chats"
+  config.setup({ chats_storage_dirs = { fixture_root } })
+
+  local chats_index = require("cursor.chats_index")
+  local orig_hash = chats_index.workspace_hash
+  local orig_root = project.root
+  chats_index.workspace_hash = function()
+    return "abc123workspacehash"
+  end
+  project.root = function()
+    return "/tmp/cursor-nvim-test-project"
+  end
+
+  local done = false
+  local chats = {}
+  session.list_chats(function(result)
+    chats = result
+    done = true
+  end)
+
+  vim.wait(1000, function()
+    return done
+  end)
+
+  chats_index.workspace_hash = orig_hash
+  project.root = orig_root
+  assert_true(#chats >= 2)
 end)

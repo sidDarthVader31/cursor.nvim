@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "createdAtMs": 1700000000000,
+  "updatedAtMs": 1700000100000,
+  "hasConversation": true,
+  "title": "Fix picker colors",
+  "cwd": "/tmp/cursor-nvim-test-project"
+}

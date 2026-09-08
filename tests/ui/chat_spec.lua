@@ -18,6 +18,23 @@ test("chat render with tools", function()
   layout.chat_buf = nil
 end)
 
+test("chat render applies heading highlights", function()
+  local state = require("cursor.state")
+  local layout = require("cursor.ui.layout")
+  local chat = require("cursor.ui.chat")
+  state.reset()
+  layout.chat_buf = vim.api.nvim_create_buf(false, true)
+  state.add_message({ role = "user", content = "hello" })
+  state.add_message({ role = "assistant", content = "hi there" })
+  chat.render()
+
+  local marks = vim.api.nvim_buf_get_extmarks(layout.chat_buf, chat.ns, 0, -1, {})
+  assert_true(#marks >= 2)
+
+  vim.api.nvim_buf_delete(layout.chat_buf, { force = true })
+  layout.chat_buf = nil
+end)
+
 test("chat render does not crash on empty buffer", function()
   local state = require("cursor.state")
   local layout = require("cursor.ui.layout")

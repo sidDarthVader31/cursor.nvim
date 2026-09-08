@@ -1,4 +1,7 @@
 local acp = require("cursor.acp")
+local chats_index = require("cursor.chats_index")
+local project = require("cursor.project")
+local schedule = require("cursor.schedule")
 local state = require("cursor.state")
 
 local M = {}
@@ -23,43 +26,11 @@ function M.current_id()
   return state.get().session_id
 end
 
---- Parse one line from `agent ls` output into { id, title }.
-function M.parse_ls_line(line)
-  line = vim.trim(line or "")
-  if line == "" then
-    return nil
-  end
-  local id, title = line:match("^(%S+)%s+(.+)$")
-  if id and title then
-    return { id = id, title = vim.trim(title) }
-  end
-  if line:match("^sess_") then
-    return { id = line, title = line }
-  end
-  return nil
-end
-
-function M.parse_ls_output(lines)
-  local chats = {}
-  for _, line in ipairs(lines or {}) do
-    local parsed = M.parse_ls_line(line)
-    if parsed then
-      table.insert(chats, parsed)
-    end
-  end
-  return chats
-end
-
 function M.list_chats(callback)
-  local config = require("cursor.config")
-  local cmd = { config.get().agent_command, "ls" }
-  vim.system(cmd, {}, function(obj)
-    if obj.code ~= 0 then
-      callback({})
-      return
-    end
-    local lines = vim.split(obj.stdout or "", "\n", { trimempty = true })
-    callback(M.parse_ls_output(lines))
+  schedule.defer(function()
+    local root = project.root()
+    local chats = chats_index.list_for_root(root)
+    callback(chats)
   end)
 end
 

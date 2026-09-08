@@ -3,6 +3,8 @@ local state = require("cursor.state")
 
 local M = {}
 
+M.ns = vim.api.nvim_create_namespace("cursor-chat")
+
 local function tool_icon(status)
   if status == "completed" then
     return "✓"
@@ -12,6 +14,18 @@ local function tool_icon(status)
   return "◌"
 end
 
+local function apply_highlights(buf, heading_lines)
+  vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
+  for _, entry in ipairs(heading_lines) do
+    vim.api.nvim_buf_set_extmark(buf, M.ns, entry.line, 0, {
+      end_row = entry.line,
+      end_col = #entry.text,
+      hl_group = entry.hl,
+      strict = false,
+    })
+  end
+end
+
 function M.render()
   local buf = layout.chat_buf
   if not buf or not vim.api.nvim_buf_is_valid(buf) then
@@ -19,17 +33,23 @@ function M.render()
   end
 
   local lines = {}
+  local heading_lines = {}
   local st = state.get()
+
+  local function add_heading(text, hl)
+    table.insert(lines, text)
+    table.insert(heading_lines, { line = #lines - 1, text = text, hl = hl })
+  end
 
   for _, msg in ipairs(st.messages) do
     if msg.role == "user" then
-      table.insert(lines, "You")
+      add_heading("You", "CursorUser")
       for line in (msg.content or ""):gmatch("[^\n]+") do
         table.insert(lines, line)
       end
       table.insert(lines, "")
     elseif msg.role == "assistant" then
-      table.insert(lines, "Agent")
+      add_heading("Agent", "CursorAgent")
       for line in (msg.content or ""):gmatch("[^\n]+") do
         table.insert(lines, line)
       end
@@ -40,14 +60,13 @@ function M.render()
   end
 
   if st.assistant_buffer and st.assistant_buffer ~= "" then
-    table.insert(lines, "Agent")
+    add_heading("Agent", "CursorAgent")
     for line in st.assistant_buffer:gmatch("[^\n]+") do
       table.insert(lines, line)
     end
     table.insert(lines, "")
   end
 
-  -- Live tool activity (not yet in messages)
   for _, tc in pairs(st.tool_calls) do
     local already = false
     for _, msg in ipairs(st.messages) do
@@ -75,6 +94,7 @@ function M.render()
     vim.api.nvim_buf_set_option(buf, "modifiable", true)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.api.nvim_buf_set_option(buf, "modifiable", false)
+    apply_highlights(buf, heading_lines)
   end)
 
   if not ok then

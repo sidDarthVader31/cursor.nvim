@@ -205,6 +205,7 @@ Inside `:CursorModel`:
 | `:CursorChat` opens but agent won't start | `:CursorLogin` then `:CursorRestart` |
 | `:CursorModel` shows Internal error | Run `:CursorRestart` after login; ensure a session is active |
 | Keymaps don't update after config change | Set `mappings_enabled = true` and call `require("cursor").reload()` |
+| `:CursorChats` is empty | Chats are read from `~/.cursor/chats` for the current project; run `agent` in this directory first |
 | Browser doesn't open on login | `:CursorLogin!` and copy the URL |
 | Commands do nothing | `:CursorHealth` — check agent path |
 

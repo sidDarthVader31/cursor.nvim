@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "createdAtMs": 1700000400000,
+  "updatedAtMs": 1700000500000,
+  "hasConversation": false,
+  "title": "Empty draft",
+  "cwd": "/tmp/cursor-nvim-test-project"
+}

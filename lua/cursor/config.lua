@@ -37,6 +37,7 @@ local defaults = {
   },
   ui_flush_ms = 30,
   mappings_enabled = false,
+  chats_storage_dirs = nil,
 }
 
 M._config = vim.deepcopy(defaults)
