@@ -63,6 +63,12 @@ function M.setup_chat_keymaps(buf)
   vim.keymap.set("n", "R", function()
     require("cursor.session").prompt_rename()
   end, opts)
+  vim.keymap.set("n", "P", function()
+    require("cursor.plans").open_latest_or_picker()
+  end, opts)
+  vim.keymap.set("n", "x", function()
+    require("cursor.ui.input").stop()
+  end, opts)
 end
 
 function M.open_split()
@@ -177,10 +183,17 @@ function M.title_text()
 end
 
 function M.update_title()
-  if not M.chat_win or not vim.api.nvim_win_is_valid(M.chat_win) then
-    return
+  if M.chat_win and vim.api.nvim_win_is_valid(M.chat_win) then
+    vim.api.nvim_win_set_config(M.chat_win, { title = M.title_text() })
   end
-  vim.api.nvim_win_set_config(M.chat_win, { title = M.title_text() })
+end
+
+function M.update_input_title()
+  if M.input_win and vim.api.nvim_win_is_valid(M.input_win) then
+    vim.api.nvim_win_set_config(M.input_win, {
+      title = require("cursor.ui.input").input_title(),
+    })
+  end
 end
 
 function M.close()

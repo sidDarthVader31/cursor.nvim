@@ -34,6 +34,12 @@ local initial = {
   prompting = false,
   last_error = nil,
   session_allow = {},
+  plans = {},
+  pending_plan = nil,
+  activity_todos = {},
+  activity_task = nil,
+  run_cancelled = false,
+  prompt_started_at = nil,
 }
 
 M._state = vim.deepcopy(initial)

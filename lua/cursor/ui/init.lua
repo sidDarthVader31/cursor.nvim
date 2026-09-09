@@ -23,6 +23,7 @@ function M.refresh()
     if layout.is_open() then
       require("cursor.ui.chat").render()
       layout.update_title()
+      layout.update_input_title()
     end
   end)
 end

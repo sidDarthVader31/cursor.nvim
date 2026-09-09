@@ -110,12 +110,19 @@ require("cursor").setup({
 
 In the chat input:
 
-- **Enter** — send message
+- **Enter** — send message (while the agent is working, **Enter** stops the run)
 - **Shift+Enter** — new line
 - **Ctrl+w h** — back to code (split layout)
 
+In the chat history:
+
+- **P** — view plans for this session
+- **x** — stop the agent while it is working
+
 ```vim
 :CursorModel          " pick model + effort + mode
+:CursorPlans          " view plan history
+:CursorBuild          " accept latest plan and start implementation
 :CursorAsk Explain this function
 :checkhealth cursor
 ```
@@ -181,7 +188,9 @@ If the browser still does not open (remote SSH, headless, etc.), use `:CursorLog
 | `:CursorChat` / `:CursorClose` / `:CursorToggle` | Chat panel |
 | `:CursorFocus` / `:CursorFocusChat` / `:CursorFocusCode` | Focus input / history / code |
 | `:CursorAsk [prompt]` | Context-aware question |
-| `:CursorCancel` | Cancel active prompt |
+| `:CursorCancel` | Cancel active prompt (also **Enter** / **Ctrl+c** / **x** while working) |
+| `:CursorPlans` | View plans for the current session |
+| `:CursorBuild` | Build the latest plan (accept + switch to Agent + implement) |
 | `:CursorChats` | Session picker |
 | `:CursorRename [title]` | Rename current chat (prompts if no title given) |
 | `:CursorSessionNew` / `:CursorSessionResume` | Session management |

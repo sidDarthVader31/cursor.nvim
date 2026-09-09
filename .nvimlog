@@ -45,3 +45,4 @@ WRN 2026-09-08T23:50:30.427 ?.20745    server_start:193: Failed to start server:
 WRN 2026-09-08T23:50:46.115 ?.21286    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/pqNC81/nvim.21286.0
 WRN 2026-09-08T23:55:38.987 ?.32114    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/I3Q20o/nvim.32114.0
 WRN 2026-09-09T00:06:25.929 ?.53258    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/hQuhmH/nvim.53258.0
+WRN 2026-09-09T00:54:39.604 ?.37316    server_start:193: Failed to start server: operation not permitted: /var/folders/pz/w9swxt3d5zn4pxm2_7rk4lm40000gn/T/nvim.sid/2Z3MNx/nvim.37316.0

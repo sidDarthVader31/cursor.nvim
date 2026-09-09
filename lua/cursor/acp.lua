@@ -76,17 +76,16 @@ function M.setup_handlers()
     return { outcome = { outcome = "skipped", reason = "cursor.nvim stub" } }
   end)
 
-  rpc.on_request("cursor/create_plan", function(params)
-    log.info("cursor/create_plan received; auto-accepting")
-    return { outcome = { outcome = "accepted" } }
+  rpc.on_request("cursor/create_plan", function(params, id)
+    return require("cursor.plans").handle_create_plan(params, id)
   end)
 
   rpc.on_notification("cursor/update_todos", function(params)
-    log.debug("cursor/update_todos")
+    require("cursor.plans").merge_todos(params.todos or {}, params.merge)
   end)
 
   rpc.on_notification("cursor/task", function(params)
-    log.debug("cursor/task")
+    require("cursor.plans").set_task(params.description or params.prompt or "Running subagent")
   end)
 
   rpc.on_notification("cursor/generate_image", function(params)
@@ -118,6 +117,8 @@ function M.handle_session_update(params)
       title = update.title or update.kind or "tool",
       status = update.status or "pending",
       kind = update.kind,
+      started_at = vim.loop.now(),
+      completed_at = nil,
     }
     require("cursor.ui").schedule_refresh()
   elseif kind == "tool_call_update" then
@@ -126,6 +127,9 @@ function M.handle_session_update(params)
     if tc then
       tc.status = update.status or tc.status
       tc.title = update.title or tc.title
+      if tc.status == "completed" or tc.status == "failed" then
+        tc.completed_at = vim.loop.now()
+      end
     end
     require("cursor.ui").schedule_refresh()
   elseif kind == "config_option_update" then
@@ -134,7 +138,7 @@ function M.handle_session_update(params)
       require("cursor.ui").schedule_refresh()
     end
   elseif kind == "plan" then
-    state.add_message({ role = "assistant", content = update.plan or update.text or "" })
+    require("cursor.plans").ingest_session_plan(update)
     require("cursor.ui").schedule_refresh()
   elseif kind == "session_info_update" then
     if update.title and update.title ~= "" then
@@ -297,6 +301,7 @@ function M.session_new(callback)
     end
     if result and result.sessionId then
       state.get().session_id = result.sessionId
+      require("cursor.plans").load_for_session(result.sessionId)
     end
     if result and result.configOptions then
       state.update_config_options(result.configOptions)
@@ -313,6 +318,7 @@ function M.session_load(session_id, callback)
     end
     if result and result.sessionId then
       state.get().session_id = result.sessionId
+      require("cursor.plans").load_for_session(result.sessionId)
     end
     if result and result.configOptions then
       state.update_config_options(result.configOptions)
@@ -333,16 +339,27 @@ function M.session_prompt(text, callback)
   end
 
   state.clear_error()
-  state.get().prompting = true
-  state.get().assistant_buffer = ""
-  state.get().tool_calls = {}
+  local st = state.get()
+  st.prompting = true
+  st.assistant_buffer = ""
+  st.tool_calls = {}
+  st.activity_todos = {}
+  st.activity_task = nil
+  st.run_cancelled = false
+  st.prompt_started_at = vim.loop.now()
   state.set_status(state.states.prompting)
+  require("cursor.ui.spinner").start(function()
+    require("cursor.ui").schedule_refresh()
+  end)
 
   send_request("session/prompt", {
     sessionId = session_id,
     prompt = { { type = "text", text = text } },
   }, function(result, err)
-    state.get().prompting = false
+    local st = state.get()
+    st.prompting = false
+    st.prompt_started_at = nil
+    require("cursor.ui.spinner").stop()
     state.set_status(state.states.ready)
     if err then
       local msg = err.message or vim.inspect(err)
@@ -369,8 +386,13 @@ function M.session_cancel(callback)
     return
   end
   send_request("session/cancel", { sessionId = session_id }, function(result, err)
-    state.get().prompting = false
+    local st = state.get()
+    st.prompting = false
+    st.prompt_started_at = nil
+    st.run_cancelled = true
+    require("cursor.ui.spinner").stop()
     state.set_status(state.states.ready)
+    require("cursor.ui").schedule_refresh()
     if callback then
       callback(result, err)
     end

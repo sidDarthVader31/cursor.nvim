@@ -25,6 +25,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, "CursorMdFence", { link = "Comment", default = true })
   vim.api.nvim_set_hl(0, "CursorMdList", { link = "@markup.list", default = true })
   vim.api.nvim_set_hl(0, "CursorMdQuote", { link = "@markup.quote", default = true })
+  vim.api.nvim_set_hl(0, "CursorPlan", { link = "DiagnosticInfo", bold = true, default = true })
   vim.api.nvim_set_hl(0, "CursorMdHr", { link = "Comment", default = true })
   M._done = true
 end

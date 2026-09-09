@@ -176,6 +176,14 @@ function M.setup()
     require("cursor.ui.picker").open({ tab = "mode" })
   end, {})
 
+  cmd("CursorPlans", function()
+    require("cursor.plans").open_latest_or_picker()
+  end, {})
+
+  cmd("CursorBuild", function()
+    require("cursor.plans").build_latest()
+  end, {})
+
   cmd("CursorAbout", function()
     require("cursor.auth").about(function(stdout)
       vim.notify(stdout or "no output", vim.log.levels.INFO)

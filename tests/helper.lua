@@ -67,6 +67,16 @@ function M.reset_plugin()
     picker.close()
   end
 
+  local plan_ui = require("cursor.ui.plan")
+  if plan_ui.close then
+    plan_ui.close()
+  end
+
+  local spinner = require("cursor.ui.spinner")
+  if spinner.stop then
+    spinner.stop()
+  end
+
   local transport = require("cursor.transport")
   if transport.stop then
     transport.stop()

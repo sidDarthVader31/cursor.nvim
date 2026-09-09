@@ -1,6 +1,16 @@
+local spinner = require("cursor.ui.spinner")
 local state = require("cursor.state")
 
 local M = {}
+
+local function active_tool_title(st)
+  for _, tc in pairs(st.tool_calls or {}) do
+    if tc.status == "in_progress" or tc.status == "pending" then
+      return tc.title or "tool"
+    end
+  end
+  return nil
+end
 
 function M.text(opts)
   opts = opts or {}
@@ -10,7 +20,15 @@ function M.text(opts)
   end
 
   local parts = {}
-  if st.session_title and st.session_title ~= "" then
+  if st.prompting then
+    local spin = spinner.current()
+    local working = spin .. " Working"
+    local tool = active_tool_title(st)
+    if tool then
+      working = working .. " · " .. tool
+    end
+    table.insert(parts, working)
+  elseif st.session_title and st.session_title ~= "" then
     table.insert(parts, st.session_title)
   end
   table.insert(parts, state.display_value("model"))

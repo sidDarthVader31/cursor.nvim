@@ -18,6 +18,15 @@ local function clear_keymaps(buf)
   INPUT_KEYS = {}
 end
 
+function M.stop()
+  if not state.get().prompting then
+    return
+  end
+  acp.session_cancel(function()
+    require("cursor.ui").schedule_refresh()
+  end)
+end
+
 function M.setup(buf)
   clear_keymaps(buf)
   local cfg = config.get().mappings
@@ -27,6 +36,10 @@ function M.setup(buf)
       return
     end
     vim.keymap.set("i", key, function()
+      if state.get().prompting then
+        M.stop()
+        return
+      end
       M.submit()
     end, { buffer = buf, noremap = true, silent = true })
     table.insert(INPUT_KEYS, key)
@@ -46,13 +59,19 @@ function M.setup(buf)
   bind_newline(cfg.newline_alt or "<C-j>")
 
   vim.keymap.set("i", "<C-c>", function()
-    acp.session_cancel()
+    if state.get().prompting then
+      M.stop()
+      return
+    end
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
   end, { buffer = buf, noremap = true, silent = true })
   table.insert(INPUT_KEYS, "<C-c>")
 end
 
 function M.input_title()
+  if state.get().prompting then
+    return " Working · Enter=stop · Ctrl+c=stop "
+  end
   return " input · Enter=send · Shift+Enter=newline "
 end
 
@@ -67,6 +86,7 @@ function M.do_submit(text)
     return
   end
 
+  state.get().run_cancelled = false
   state.add_message({ role = "user", content = text })
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
   require("cursor.ui").refresh()
@@ -88,15 +108,15 @@ function M.submit()
     return
   end
 
+  if state.get().prompting then
+    M.stop()
+    return
+  end
+
   local text = vim.trim(M.get_text(buf))
   local ok, err = usage.validate_prompt(text)
   if not ok then
     vim.notify("[cursor] " .. err, vim.log.levels.WARN)
-    return
-  end
-
-  if state.get().prompting then
-    vim.notify("[cursor] Agent is busy", vim.log.levels.WARN)
     return
   end
 

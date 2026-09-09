@@ -123,7 +123,10 @@ function M.stop()
 end
 
 function M.cancel()
-  acp.session_cancel()
+  state.get().run_cancelled = true
+  acp.session_cancel(function()
+    require("cursor.ui").schedule_refresh()
+  end)
 end
 
 function M.login(opts)
